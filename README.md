@@ -85,8 +85,7 @@ Cuando los valores excedan estos rangos, se activará automáticamente una alert
 ├── static/
 │   └── js/
 │       ├── app.js         # Lógica del frontend
-│       ├── config.js      # Gestión de configuración web
-│       └── config.const.js # Configuración manual JavaScript (opcional)
+│       └── config.const.js # Configuración manual JavaScript
 └── README.md
 ```
 
@@ -135,9 +134,9 @@ const FRONTEND_CONFIG = {
 - **IMPORTANTE**: Este proyecto usa `arduino_serial_flask.ino` (ESP32 con Serial)
 - `heart.ino` es un código diferente que usa WiFi y Ubidots (no compatible con Flask)
 - El sistema busca automáticamente el puerto COM donde está conectado ESP32
-- Puedes configurar el puerto manualmente desde la interfaz web (botón de configuración)
-- O crear `config.py` para configuración fija sin usar la interfaz web
+- **Configuración**: Edita `config.py` para configurar puerto, umbrales y opciones del servidor
+- **Frontend**: Edita `static/js/config.const.js` para configurar la interfaz web
 - Las alertas se activan automáticamente cuando los valores están fuera de rango
 - El botón de alerta permite activar manualmente el sonido de alerta
-- Los umbrales de alerta se pueden configurar desde el panel de configuración o `config.py`
+- Todos los valores se configuran mediante archivos de configuración (no hay panel web)
 

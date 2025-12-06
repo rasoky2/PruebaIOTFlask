@@ -2,6 +2,18 @@ let alertSound = null;
 let isAlertActive = false;
 let updateInterval = null;
 
+// Gráficos
+let pulseChart = null;
+let tempChart = null;
+const maxDataPoints = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.maxChartDataPoints) 
+    ? FRONTEND_CONFIG.maxChartDataPoints 
+    : 50;
+let pulseData = [];
+let tempData = [];
+let timeLabels = [];
+let pulseSum = 0;
+let tempMax = 0;
+
 function initAudio() {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     return audioContext;
@@ -50,10 +62,13 @@ function updateData(data) {
     
     if (data.temperature !== undefined) {
         tempElement.textContent = data.temperature.toFixed(1);
+        updateTempChart(data.temperature);
     }
     
     if (data.bpm !== undefined) {
-        bpmElement.textContent = data.bpm || '--';
+        const bpmValue = data.bpm || 0;
+        bpmElement.textContent = bpmValue || '--';
+        updatePulseChart(bpmValue);
     }
     
     const hasAlert = data.alert || false;
@@ -72,6 +87,220 @@ function updateData(data) {
     }
     
     updateStatus(data.status || 'Conectado', data.status !== 'Desconectado');
+}
+
+function initCharts() {
+    // Gráfico de Pulso Cardíaco (estilo ECG)
+    const pulseCtx = document.getElementById('pulseChart').getContext('2d');
+    pulseChart = new Chart(pulseCtx, {
+        type: 'line',
+        data: {
+            labels: timeLabels,
+            datasets: [{
+                label: 'BPM',
+                data: pulseData,
+                borderColor: '#00ff41',
+                backgroundColor: 'rgba(0, 255, 65, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 0
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#00ff41',
+                    bodyColor: '#00ff41',
+                    borderColor: '#00ff41',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(0, 255, 65, 0.1)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#00ff41',
+                        font: {
+                            size: 10
+                        },
+                        maxTicksLimit: 10
+                    }
+                },
+                y: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(0, 255, 65, 0.1)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#00ff41',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    min: 0,
+                    max: 200
+                }
+            }
+        }
+    });
+
+    // Gráfico de Temperatura
+    const tempCtx = document.getElementById('tempChart').getContext('2d');
+    tempChart = new Chart(tempCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Temperatura (°C)',
+                data: [],
+                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 2,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 0
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#00d4ff',
+                    bodyColor: '#00d4ff',
+                    borderColor: '#00d4ff',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(0, 212, 255, 0.1)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#00d4ff',
+                        font: {
+                            size: 10
+                        },
+                        maxTicksLimit: 10
+                    }
+                },
+                y: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(0, 212, 255, 0.1)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#00d4ff',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    min: 0,
+                    max: 50
+                }
+            }
+        }
+    });
+}
+
+function updatePulseChart(bpm) {
+    if (!pulseChart) return;
+    
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    const bpmValue = bpm || 0;
+    pulseData.push(bpmValue);
+    
+    // Sincronizar timeLabels solo para el gráfico de pulso
+    if (pulseData.length !== timeLabels.length) {
+        timeLabels.push(timeStr);
+    } else {
+        timeLabels[timeLabels.length - 1] = timeStr;
+    }
+    
+    if (pulseData.length > maxDataPoints) {
+        pulseData.shift();
+        timeLabels.shift();
+    }
+    
+    // Calcular promedio de los valores válidos (> 0)
+    const validBPMs = pulseData.filter(v => v > 0);
+    const avg = validBPMs.length > 0 
+        ? Math.round(validBPMs.reduce((a, b) => a + b, 0) / validBPMs.length) 
+        : 0;
+    
+    document.getElementById('currentBPM').textContent = bpmValue || '--';
+    document.getElementById('avgBPM').textContent = avg || '--';
+    
+    pulseChart.data.labels = [...timeLabels];
+    pulseChart.data.datasets[0].data = [...pulseData];
+    pulseChart.update('none');
+}
+
+function updateTempChart(temp) {
+    if (!tempChart) return;
+    
+    const tempValue = temp || 0;
+    tempData.push(tempValue);
+    
+    if (tempData.length > maxDataPoints) {
+        tempData.shift();
+    }
+    
+    // Sincronizar con timeLabels del gráfico de pulso
+    if (tempChart.data.labels.length !== timeLabels.length) {
+        tempChart.data.labels = [...timeLabels];
+    }
+    
+    // Asegurar que tempData tenga la misma longitud que timeLabels
+    while (tempData.length < timeLabels.length) {
+        tempData.unshift(tempValue);
+    }
+    while (tempData.length > timeLabels.length) {
+        tempData.shift();
+    }
+    
+    tempChart.data.datasets[0].data = [...tempData];
+    
+    if (tempValue > tempMax) {
+        tempMax = tempValue;
+    }
+    
+    document.getElementById('currentTemp').textContent = tempValue ? tempValue.toFixed(1) : '--';
+    document.getElementById('maxTemp').textContent = tempMax ? tempMax.toFixed(1) : '--';
+    
+    tempChart.update('none');
 }
 
 function activateAlert() {
@@ -149,9 +378,9 @@ function stopUpdates() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    initCharts();
     setupAlertButton();
     startUpdates();
 });
 
 window.addEventListener('beforeunload', stopUpdates);
-

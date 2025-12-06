@@ -14,6 +14,9 @@ const FRONTEND_CONFIG = {
     // Valores recomendados: 100-5000 ms
     updateInterval: 500,
     
+    // Número máximo de puntos en los gráficos
+    maxChartDataPoints: 50,
+    
     // ============================================
     // CONFIGURACIÓN DE ALERTAS
     // ============================================
@@ -92,4 +95,3 @@ const FRONTEND_CONFIG = {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = FRONTEND_CONFIG;
 }
-
