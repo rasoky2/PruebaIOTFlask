@@ -140,7 +140,6 @@ const FRONTEND_CONFIG = {
 - **Configuración**: Toda la configuración se realiza mediante archivos:
   - `config.py` - Configuración del backend (puerto, umbrales, servidor Flask)
   - `static/js/config.const.js` - Configuración del frontend (intervalos, alertas)
-- **No hay panel de configuración en la web** - Todo se configura editando los archivos antes de iniciar
 - Las alertas se activan automáticamente cuando los valores están fuera de rango
 - El botón "Activar Alerta" permite reproducir manualmente el sonido de alerta
 - Los gráficos muestran hasta 50 puntos de datos (configurable en `config.const.js`)
