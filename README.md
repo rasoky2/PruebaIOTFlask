@@ -6,9 +6,11 @@ Sistema de monitoreo de signos vitales que conecta Arduino (ESP32) con una aplic
 
 - Lectura de temperatura corporal mediante sensor MLX90614
 - Detección de pulso cardíaco (BPM) mediante sensor analógico
-- Interfaz web en tiempo real
+- Interfaz web en tiempo real con gráficos estilo monitor médico
+- Gráficos de pulso cardíaco (estilo ECG) y temperatura en tiempo real
 - Sistema de alertas con sonido cuando los valores están fuera de rango
-- Botón manual para activar alerta
+- Botón manual para reproducir alerta
+- Configuración mediante archivos (sin panel web)
 
 ## Requisitos
 
@@ -56,9 +58,10 @@ python app.py
 3. Colocar el dedo en el sensor de pulso
 
 4. La interfaz mostrará:
-   - Temperatura en tiempo real
-   - Pulso cardíaco (BPM)
+   - Temperatura y pulso cardíaco en tiempo real
+   - Gráficos de monitoreo (estilo monitor médico)
    - Estado de conexión
+   - Estadísticas (promedio BPM, temperatura máxima)
    - Alertas automáticas cuando los valores están fuera de rango
 
 ## Rangos Normales
@@ -134,9 +137,11 @@ const FRONTEND_CONFIG = {
 - **IMPORTANTE**: Este proyecto usa `arduino_serial_flask.ino` (ESP32 con Serial)
 - `heart.ino` es un código diferente que usa WiFi y Ubidots (no compatible con Flask)
 - El sistema busca automáticamente el puerto COM donde está conectado ESP32
-- **Configuración**: Edita `config.py` para configurar puerto, umbrales y opciones del servidor
-- **Frontend**: Edita `static/js/config.const.js` para configurar la interfaz web
+- **Configuración**: Toda la configuración se realiza mediante archivos:
+  - `config.py` - Configuración del backend (puerto, umbrales, servidor Flask)
+  - `static/js/config.const.js` - Configuración del frontend (intervalos, alertas)
+- **No hay panel de configuración en la web** - Todo se configura editando los archivos antes de iniciar
 - Las alertas se activan automáticamente cuando los valores están fuera de rango
-- El botón de alerta permite activar manualmente el sonido de alerta
-- Todos los valores se configuran mediante archivos de configuración (no hay panel web)
+- El botón "Activar Alerta" permite reproducir manualmente el sonido de alerta
+- Los gráficos muestran hasta 50 puntos de datos (configurable en `config.const.js`)
 
