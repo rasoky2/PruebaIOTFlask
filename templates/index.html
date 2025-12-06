@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Cardíaco - Arduino</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        .animate-pulse-dot {
+            animation: pulse-dot 2s infinite;
+        }
+        .animate-shake {
+            animation: shake 0.5s;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-base-200 flex items-center justify-center p-4">
+    <div class="card bg-base-100 shadow-2xl w-full max-w-4xl">
+        <div class="card-body p-8 md:p-12">
+            <header class="text-center mb-8">
+                <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                    <i class="fas fa-heartbeat text-error mr-3"></i>
+                    Monitor de Signos Vitales
+                </h1>
+                <div class="flex items-center justify-center gap-3 text-lg" id="statusIndicator">
+                    <span class="w-3 h-3 rounded-full bg-base-300 animate-pulse-dot" id="statusDot"></span>
+                    <span id="statusText" class="font-medium">Conectando...</span>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="card bg-base-200 shadow-lg" id="tempCard">
+                    <div class="card-body items-center text-center">
+                        <div class="text-6xl mb-4 text-info">
+                            <i class="fas fa-thermometer-half"></i>
+                        </div>
+                        <h2 class="card-title text-2xl mb-4">Temperatura</h2>
+                        <div class="text-6xl md:text-7xl font-bold text-info mb-2" id="temperature">--</div>
+                        <div class="text-xl opacity-70">
+                            <i class="fas fa-temperature-high"></i> °C
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-base-200 shadow-lg" id="bpmCard">
+                    <div class="card-body items-center text-center">
+                        <div class="text-6xl mb-4 text-error">
+                            <i class="fas fa-heartbeat"></i>
+                        </div>
+                        <h2 class="card-title text-2xl mb-4">Pulso Cardíaco</h2>
+                        <div class="text-6xl md:text-7xl font-bold text-error mb-2" id="bpm">--</div>
+                        <div class="text-xl opacity-70">
+                            <i class="fas fa-heart"></i> BPM
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button id="alertButton" class="btn btn-primary btn-lg gap-2" disabled>
+                    <i class="fas fa-bell"></i>
+                    <span>Activar Alerta</span>
+                </button>
+                <div id="alertMessage" class="mt-6 min-h-[60px] flex items-center justify-center"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón de configuración flotante -->
+    <button class="btn btn-circle btn-primary fixed bottom-6 right-6 shadow-lg z-10" onclick="config_modal.showModal()">
+        <i class="fas fa-cog text-xl"></i>
+    </button>
+
+    <!-- Modal de configuración -->
+    <dialog id="config_modal" class="modal">
+        <div class="modal-box w-11/12 max-w-3xl">
+            <h3 class="font-bold text-2xl mb-4">
+                <i class="fas fa-cog mr-2"></i>Configuración
+            </h3>
+            
+            <div class="tabs tabs-boxed mb-4">
+                <a class="tab tab-active" onclick="switchTab('connection')">Conexión</a>
+                <a class="tab" onclick="switchTab('thresholds')">Umbrales</a>
+                <a class="tab" onclick="switchTab('advanced')">Avanzado</a>
+            </div>
+
+            <!-- Tab Conexión -->
+            <div id="tab-connection" class="tab-content">
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text font-semibold">Puerto COM</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <select id="portSelect" class="select select-bordered flex-1">
+                            <option value="">Seleccionar puerto...</option>
+                        </select>
+                        <button id="refreshPorts" class="btn btn-outline">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <label class="label">
+                        <span class="label-text-alt">Puerto actual: <span id="currentPort" class="font-semibold">-</span></span>
+                    </label>
+                </div>
+
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text font-semibold">Velocidad (Baudrate)</span>
+                    </label>
+                    <select id="baudrateSelect" class="select select-bordered">
+                        <option value="9600">9600</option>
+                        <option value="19200">19200</option>
+                        <option value="38400">38400</option>
+                        <option value="57600">57600</option>
+                        <option value="115200" selected>115200</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="connectBtn" class="btn btn-primary flex-1">
+                        <i class="fas fa-plug mr-2"></i>Conectar
+                    </button>
+                    <button id="disconnectBtn" class="btn btn-outline">
+                        <i class="fas fa-unlink mr-2"></i>Desconectar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Umbrales -->
+            <div id="tab-thresholds" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Temperatura Mínima (°C)</span>
+                        </label>
+                        <input type="number" id="tempMin" class="input input-bordered" step="0.1" value="20.0">
+                    </div>
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Temperatura Máxima (°C)</span>
+                        </label>
+                        <input type="number" id="tempMax" class="input input-bordered" step="0.1" value="37.0">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">BPM Mínimo</span>
+                        </label>
+                        <input type="number" id="bpmMin" class="input input-bordered" value="60">
+                    </div>
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">BPM Máximo</span>
+                        </label>
+                        <input type="number" id="bpmMax" class="input input-bordered" value="100">
+                    </div>
+                </div>
+
+                <button id="saveThresholds" class="btn btn-primary w-full">
+                    <i class="fas fa-save mr-2"></i>Guardar Umbrales
+                </button>
+            </div>
+
+            <!-- Tab Avanzado -->
+            <div id="tab-advanced" class="tab-content hidden">
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text font-semibold">Intervalo de Actualización (ms)</span>
+                    </label>
+                    <input type="number" id="updateInterval" class="input input-bordered" value="500" min="100" max="5000" step="100">
+                    <label class="label">
+                        <span class="label-text-alt">Tiempo entre actualizaciones de datos en la interfaz</span>
+                    </label>
+                </div>
+
+                <button id="saveAdvanced" class="btn btn-primary w-full">
+                    <i class="fas fa-save mr-2"></i>Guardar Configuración Avanzada
+                </button>
+            </div>
+
+            <div class="modal-action">
+                <button class="btn" onclick="config_modal.close()">Cerrar</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <script src="{{ url_for('static', filename='js/config.const.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+</body>
+</html>
+
