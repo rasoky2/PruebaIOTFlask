@@ -36,7 +36,7 @@ function renderHistory(records) {
             <td>${r.avg_bpm != null ? Number(r.avg_bpm).toFixed(1) : '--'}</td>
             <td>${r.created_at || '--'}</td>
             <td class="flex gap-2">
-                <button class="btn btn-ghost btn-xs text-info" data-action="edit" data-id="${r.id}"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-ghost btn-xs text-primary" data-action="edit" data-id="${r.id}"><i class="fas fa-edit"></i></button>
                 <button class="btn btn-ghost btn-xs text-error" data-action="delete" data-id="${r.id}"><i class="fas fa-trash"></i></button>
                 <button class="btn btn-ghost btn-xs text-accent" data-action="sessions" data-id="${r.id}"><i class="fas fa-chart-line"></i></button>
                 <button class="btn btn-ghost btn-xs text-primary" data-action="details" data-id="${r.id}"><i class="fas fa-eye"></i></button>
@@ -416,6 +416,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 pendingDeleteId = null;
             }
             confirmDeleteModal.close();
+        });
+        confirmDeleteModal.addEventListener('close', () => {
+            pendingDeleteId = null;
         });
     }
 

@@ -17,6 +17,7 @@ let tempMax = 0;
 // Sesión de paciente
 let sessionActive = false;
 let currentPatient = null;
+// Permite ver datos en vivo aunque no haya sesión activa
 let allowViewWithoutSession = false;
 let patientList = [];
 
@@ -25,6 +26,12 @@ let patientList = [];
 let historyCache = [];
 let editRecordId = null;
 let pendingDeleteId = null;
+
+// Polling y backoff
+let fetchTimer = null;
+let errorStreak = 0;
+let baseInterval = 500;
+const maxBackoff = 4000;
 
 function initAudio() {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -134,7 +141,7 @@ function renderHistory(records) {
             <td>${r.avg_bpm != null ? r.avg_bpm.toFixed(1) : '--'}</td>
             <td>${r.created_at || '--'}</td>
             <td class="flex gap-2">
-                <button class="btn btn-ghost btn-xs text-info" data-action="edit" data-id="${r.id}" title="Editar paciente"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-ghost btn-xs text-primary" data-action="edit" data-id="${r.id}" title="Editar paciente"><i class="fas fa-edit"></i></button>
                 <button class="btn btn-ghost btn-xs text-error" data-action="delete" data-id="${r.id}" title="Eliminar paciente"><i class="fas fa-trash"></i></button>
                 <button class="btn btn-ghost btn-xs text-primary" data-action="view" data-id="${r.id}" title="Ver estadísticas e historial"><i class="fas fa-search"></i></button>
             </td>
@@ -708,14 +715,24 @@ function deactivateAlert() {
     message.innerHTML = '';
 }
 
+function scheduleFetch(delay = baseInterval) {
+    if (fetchTimer) clearTimeout(fetchTimer);
+    fetchTimer = setTimeout(fetchData, delay);
+}
+
 async function fetchData() {
     try {
         const response = await fetch('/api/data');
         const data = await response.json();
+        errorStreak = 0;
         updateData(data);
+        scheduleFetch(baseInterval);
     } catch (error) {
         console.error('Error fetching data:', error);
-        updateStatus('Error de conexión', false);
+        updateStatus('Desconectado', false);
+        errorStreak += 1;
+        const nextDelay = Math.min(baseInterval * (2 ** errorStreak), maxBackoff);
+        scheduleFetch(nextDelay);
     }
 }
 
@@ -729,26 +746,32 @@ function setupAlertButton() {
 }
 
 function startUpdates() {
-    fetchData();
-    // Usar intervalo de configuración manual si está disponible
-    const interval = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.updateInterval) 
+    baseInterval = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.updateInterval) 
         ? FRONTEND_CONFIG.updateInterval 
         : 500;
-    updateInterval = setInterval(fetchData, interval);
+    scheduleFetch(0);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (fetchTimer) clearTimeout(fetchTimer);
+            updateStatus('Pausado (fondo)', false);
+        } else {
+            errorStreak = 0;
+            scheduleFetch(0);
+        }
+    });
 }
 
 function updateRefreshInterval(interval) {
-    if (updateInterval) {
-        clearInterval(updateInterval);
-    }
-    updateInterval = setInterval(fetchData, interval);
+    baseInterval = interval;
+    scheduleFetch(baseInterval);
 }
 
 window.updateRefreshInterval = updateRefreshInterval;
 
 function stopUpdates() {
-    if (updateInterval) {
-        clearInterval(updateInterval);
+    if (fetchTimer) {
+        clearTimeout(fetchTimer);
+        fetchTimer = null;
     }
 }
 
@@ -913,6 +936,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 pendingDeleteId = null;
             }
             confirmDeleteModal.close();
+        });
+        confirmDeleteModal.addEventListener('close', () => {
+            pendingDeleteId = null;
         });
     }
     if (useSelectedBtn) useSelectedBtn.addEventListener('click', startSessionFromSelect);

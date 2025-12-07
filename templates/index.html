@@ -12,6 +12,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        :root {
+            --aws-orange: #ff9900;
+            --aws-orange-hover: #e68a00;
+            --aws-navy: #232f3e;
+            --aws-gray: #f2f4f7;
+        }
+
         @keyframes pulse-dot {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -36,11 +43,50 @@
         .font-amazon {
             font-family: 'Amazon Ember', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
+
+        /* Botones estilo AWS */
+        .btn-primary {
+            background-color: var(--aws-orange);
+            border-color: var(--aws-orange);
+            color: #1f2933;
+        }
+        .btn-primary:hover, .btn-primary:focus {
+            background-color: var(--aws-orange-hover);
+            border-color: var(--aws-orange-hover);
+            color: #111827;
+        }
+        .btn-outline.btn-primary {
+            border-color: var(--aws-orange);
+            color: var(--aws-orange);
+        }
+        .btn-outline.btn-primary:hover, .btn-outline.btn-primary:focus {
+            background-color: var(--aws-orange);
+            color: #1f2933;
+        }
+        .btn-success {
+            background-color: #0d9d57;
+            border-color: #0d9d57;
+        }
+        .btn-success:hover, .btn-success:focus {
+            background-color: #0b874b;
+            border-color: #0b874b;
+        }
+        .btn {
+            border-radius: 10px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        /* Iconos y texto primary en azul oscuro AWS */
+        i.text-primary,
+        .text-primary {
+            color: #232f3e;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-slate-50">
     <div class="flex items-center justify-center p-4">
-        <div class="card bg-base-100 shadow-2xl w-full max-w-6xl">
+            <div class="card bg-base-100 shadow-2xl w-full max-w-6xl">
                 <div class="card-body p-8 md:p-12 space-y-6">
                     <header class="text-center mb-4">
                         <h1 class="text-4xl md:text-5xl font-bold mb-4">
@@ -103,10 +149,10 @@
 
 
                     <!-- Indicador si no hay sesión -->
-                    <div id="noSession" class="alert alert-warning shadow-lg">
+                    <div id="noSession" class="alert shadow-lg" style="background-color: #e6f2ff; border-color: #232f3e; border-width: 1px;">
                         <div>
-                            <i class="fas fa-info-circle"></i>
-                            <span>Registra un paciente para iniciar el monitoreo.</span>
+                            <i class="fas fa-info-circle" style="color: #232f3e;"></i>
+                            <span style="color: #232f3e;">Registra un paciente para iniciar el monitoreo.</span>
                         </div>
                     </div>
 
@@ -194,56 +240,56 @@
     <dialog id="recordsModal" class="modal modal-bottom sm:modal-middle">
         <div class="modal-box w-full max-w-4xl">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-2xl font-bold"><i class="fas fa-database text-primary mr-2"></i>Gestión de Registros</h3>
+                    <h3 class="text-2xl font-bold"><i class="fas fa-database text-primary mr-2"></i>Gestión de Registros</h3>
                 <form method="dialog">
                     <button id="closeRecordsModal" class="btn btn-ghost btn-sm">Cerrar</button>
                 </form>
-            </div>
+                </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-semibold">Nombre completo</span></label>
-                    <input id="recordName" type="text" class="input input-bordered" placeholder="Paciente" required>
-                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="form-control">
-                    <label class="label"><span class="label-text font-semibold">Documento / ID</span></label>
+                        <label class="label"><span class="label-text font-semibold">Nombre completo</span></label>
+                        <input id="recordName" type="text" class="input input-bordered" placeholder="Paciente" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Documento / ID</span></label>
                         <input id="recordId" type="text" class="input input-bordered" placeholder="DNI / ID" maxlength="8" pattern="\\d{0,8}" inputmode="numeric">
-                </div>
-                <div class="form-control">
-                    <label class="label"><span class="label-text font-semibold">Edad</span></label>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Edad</span></label>
                         <input id="recordAge" type="number" min="0" max="999" class="input input-bordered" placeholder="Edad" inputmode="numeric">
                 </div>
             </div>
             <div class="flex gap-3 mt-4">
-                <button id="recordSaveBtn" class="btn btn-primary btn-sm gap-2">
-                    <i class="fas fa-save"></i> Guardar
-                </button>
-                <button id="recordCancelBtn" class="btn btn-ghost" hidden>Cancelar edición</button>
-                <button id="historyReloadBtn" class="btn btn-outline btn-primary btn-sm">
-                    <i class="fas fa-sync-alt"></i> Actualizar
-                </button>
-            </div>
+                    <button id="recordSaveBtn" class="btn btn-primary btn-sm gap-2">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
+                    <button id="recordCancelBtn" class="btn btn-ghost" hidden>Cancelar edición</button>
+                    <button id="historyReloadBtn" class="btn btn-primary btn-sm gap-2">
+                        <i class="fas fa-sync-alt"></i> Actualizar
+                    </button>
+                </div>
 
             <div class="overflow-x-auto mt-4">
-                <table class="table table-zebra w-full">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>ID/Doc</th>
-                            <th>Edad</th>
-                            <th>Temp Final</th>
-                            <th>Prom BPM</th>
-                            <th>Fecha</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyTableBody">
-                        <tr>
-                            <td colspan="8" class="text-center text-sm text-gray-500">Sin registros</td>
-                        </tr>
-                    </tbody>
-                </table>
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>ID/Doc</th>
+                                <th>Edad</th>
+                                <th>Temp Final</th>
+                                <th>Prom BPM</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="8" class="text-center text-sm text-gray-500">Sin registros</td>
+                            </tr>
+                        </tbody>
+                    </table>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop"><button>Cerrar</button></form>
@@ -281,8 +327,8 @@
                     <button class="btn btn-ghost">Cancelar</button>
                 </form>
                 <button id="confirmDeleteBtn" class="btn btn-error">Eliminar</button>
-            </div>
         </div>
+    </div>
         <form method="dialog" class="modal-backdrop"><button>close</button></form>
     </dialog>
 
