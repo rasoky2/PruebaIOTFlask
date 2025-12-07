@@ -80,4 +80,3 @@ AUTO_RECONNECT = True
 
 # Intervalo de intentos de reconexión (segundos)
 RECONNECT_INTERVAL = 5
-

@@ -14,6 +14,18 @@ let timeLabels = [];
 let pulseSum = 0;
 let tempMax = 0;
 
+// Sesión de paciente
+let sessionActive = false;
+let currentPatient = null;
+let allowViewWithoutSession = false;
+let patientList = [];
+
+// Historial
+// Gestion de registros (solo si hay elementos en la página)
+let historyCache = [];
+let editRecordId = null;
+let pendingDeleteId = null;
+
 function initAudio() {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     return audioContext;
@@ -40,6 +52,366 @@ function playAlertSound() {
     oscillator.stop(alertSound.currentTime + 0.5);
 }
 
+function showToast(message, type = 'info') {
+    const alertClass = {
+        success: 'alert-success',
+        error: 'alert-error',
+        warning: 'alert-warning',
+        info: 'alert-info'
+    }[type] || 'alert-info';
+
+    const el = document.createElement('div');
+    el.className = `alert ${alertClass} fixed top-4 right-4 z-50 shadow-lg max-w-md`;
+    el.innerHTML = `<span>${message}</span>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+}
+
+function resetCharts() {
+    pulseData = [];
+    tempData = [];
+    timeLabels = [];
+    pulseSum = 0;
+    tempMax = 0;
+    if (pulseChart) {
+        pulseChart.data.labels = [];
+        pulseChart.data.datasets[0].data = [];
+        pulseChart.update('none');
+    }
+    if (tempChart) {
+        tempChart.data.labels = [];
+        tempChart.data.datasets[0].data = [];
+        tempChart.update('none');
+    }
+    document.getElementById('currentBPM').textContent = '--';
+    document.getElementById('avgBPM').textContent = '--';
+    document.getElementById('currentTemp').textContent = '--';
+    document.getElementById('maxTemp').textContent = '--';
+}
+
+function refreshSessionUI() {
+    const dataSection = document.getElementById('dataSection');
+    const noSession = document.getElementById('noSession');
+    const startBtn = document.getElementById('startSessionBtn');
+    const endBtn = document.getElementById('endSessionBtn');
+    const sessionInfo = document.getElementById('sessionInfo');
+
+    if (sessionActive && currentPatient) {
+        dataSection.classList.remove('hidden');
+        noSession.classList.add('hidden');
+        startBtn.disabled = true;
+        endBtn.disabled = false;
+        sessionInfo.textContent = `Monitoreando a ${currentPatient.name}`;
+    } else if (allowViewWithoutSession) {
+        dataSection.classList.remove('hidden');
+        noSession.classList.add('hidden');
+        startBtn.disabled = false;
+        endBtn.disabled = true;
+        sessionInfo.textContent = 'Modo solo visualización';
+    } else {
+        dataSection.classList.add('hidden');
+        noSession.classList.remove('hidden');
+        startBtn.disabled = false;
+        endBtn.disabled = true;
+        sessionInfo.textContent = 'Sin paciente en sesión';
+    }
+}
+
+function renderHistory(records) {
+    const tbody = document.getElementById('historyTableBody');
+    tbody.innerHTML = '';
+    if (!records || records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-sm text-gray-500">Sin registros</td></tr>';
+        return;
+    }
+    const rows = records.map(r => `
+        <tr>
+            <td>${r.id}</td>
+            <td>${r.name || '--'}</td>
+            <td>${r.identifier || '--'}</td>
+            <td>${r.age ?? '--'}</td>
+            <td>${r.last_temp != null ? r.last_temp.toFixed(1) : '--'}</td>
+            <td>${r.avg_bpm != null ? r.avg_bpm.toFixed(1) : '--'}</td>
+            <td>${r.created_at || '--'}</td>
+            <td class="flex gap-2">
+                <button class="btn btn-ghost btn-xs text-info" data-action="edit" data-id="${r.id}" title="Editar paciente"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-ghost btn-xs text-error" data-action="delete" data-id="${r.id}" title="Eliminar paciente"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-ghost btn-xs text-primary" data-action="view" data-id="${r.id}" title="Ver estadísticas e historial"><i class="fas fa-search"></i></button>
+            </td>
+        </tr>
+    `).join('');
+    tbody.innerHTML = rows;
+}
+
+async function loadHistory() {
+    try {
+        const res = await fetch('/api/patient/history?limit=50');
+        const data = await res.json();
+        if (data.success) {
+            historyCache = data.records || [];
+            renderHistory(historyCache);
+        } else {
+            renderHistory([]);
+        }
+    } catch (e) {
+        console.error('Error cargando historial', e);
+        renderHistory([]);
+    }
+}
+
+function formatTime(seconds) {
+    if (!seconds) return '0s';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+    return parts.join(' ');
+}
+
+function calculatePatientStats(sessions) {
+    if (!sessions || sessions.length === 0) {
+        return {
+            totalSessions: 0,
+            avgBpmOverall: 0,
+            minBpmOverall: 0,
+            maxBpmOverall: 0,
+            avgTempOverall: 0,
+            totalMonitoringTime: 0
+        };
+    }
+
+    let totalBpm = 0;
+    let totalTemp = 0;
+    let validBpmCount = 0;
+    let validTempCount = 0;
+    let minBpm = Infinity;
+    let maxBpm = -Infinity;
+    let totalTime = 0;
+
+    sessions.forEach(session => {
+        if (session.avg_bpm != null) {
+            totalBpm += session.avg_bpm;
+            validBpmCount++;
+        }
+        if (session.min_bpm != null && session.min_bpm < minBpm) minBpm = session.min_bpm;
+        if (session.max_bpm != null && session.max_bpm > maxBpm) maxBpm = session.max_bpm;
+        if (session.last_temp != null) {
+            totalTemp += session.last_temp;
+            validTempCount++;
+        }
+        if (session.start_at && session.end_at) {
+            totalTime += (session.end_at - session.start_at);
+        }
+    });
+
+    return {
+        totalSessions: sessions.length,
+        avgBpmOverall: validBpmCount > 0 ? (totalBpm / validBpmCount).toFixed(1) : 0,
+        minBpmOverall: minBpm !== Infinity ? minBpm : 0,
+        maxBpmOverall: maxBpm !== -Infinity ? maxBpm : 0,
+        avgTempOverall: validTempCount > 0 ? (totalTemp / validTempCount).toFixed(1) : 0,
+        totalMonitoringTime: totalTime
+    };
+}
+
+function renderPatientDetails(patientId, sessions, stats) {
+    const container = document.getElementById('patientDetailsContent');
+    if (!container) return;
+    const patient = historyCache.find(p => String(p.id) === String(patientId));
+    const statsHtml = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="stat bg-base-100 rounded-lg p-4">
+                <div class="stat-title">Total Sesiones</div>
+                <div class="stat-value text-primary">${stats.totalSessions}</div>
+            </div>
+            <div class="stat bg-base-100 rounded-lg p-4">
+                <div class="stat-title">BPM Promedio</div>
+                <div class="stat-value text-secondary">${stats.avgBpmOverall}</div>
+            </div>
+            <div class="stat bg-base-100 rounded-lg p-4">
+                <div class="stat-title">Temperatura Promedio</div>
+                <div class="stat-value text-accent">${stats.avgTempOverall}°C</div>
+            </div>
+            <div class="stat bg-base-100 rounded-lg p-4">
+                <div class="stat-title">Tiempo Total</div>
+                <div class="stat-value text-info">${formatTime(stats.totalMonitoringTime)}</div>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <h4 class="text-lg font-semibold mb-3">Información del Paciente</h4>
+            <div class="bg-base-100 rounded-lg p-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div><strong>Nombre:</strong> ${patient?.name || 'N/A'}</div>
+                    <div><strong>ID:</strong> ${patient?.identifier || 'N/A'}</div>
+                    <div><strong>Edad:</strong> ${patient?.age || 'N/A'}</div>
+                    <div><strong>Última Temp:</strong> ${patient?.last_temp ? patient.last_temp.toFixed(1) + '°C' : 'N/A'}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <h4 class="text-lg font-semibold mb-3">Estadísticas Detalladas</h4>
+            <div class="bg-base-100 rounded-lg p-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div><strong>BPM Mínimo:</strong> ${stats.minBpmOverall}</div>
+                    <div><strong>BPM Máximo:</strong> ${stats.maxBpmOverall}</div>
+                    <div><strong>Sesiones con BPM:</strong> ${sessions.filter(s => s.avg_bpm != null).length}</div>
+                    <div><strong>Sesiones con Temp:</strong> ${sessions.filter(s => s.last_temp != null).length}</div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h4 class="text-lg font-semibold mb-3">Últimas 10 Sesiones</h4>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>BPM Prom</th>
+                            <th>BPM Min</th>
+                            <th>BPM Max</th>
+                            <th>Temperatura</th>
+                            <th>Duración</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sessions.slice(0, 10).map(session => `
+                            <tr>
+                                <td>${new Date(session.created_at || session.start_at * 1000).toLocaleString()}</td>
+                                <td>${session.avg_bpm != null ? session.avg_bpm.toFixed(1) : '--'}</td>
+                                <td>${session.min_bpm != null ? session.min_bpm : '--'}</td>
+                                <td>${session.max_bpm != null ? session.max_bpm : '--'}</td>
+                                <td>${session.last_temp != null ? session.last_temp.toFixed(1) + '°C' : '--'}</td>
+                                <td>${session.start_at && session.end_at ? formatTime(session.end_at - session.start_at) : '--'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    container.innerHTML = statsHtml;
+}
+
+async function loadPatientDetails(patientId) {
+    const modal = document.getElementById('detailsModal');
+    const content = document.getElementById('patientDetailsContent');
+    if (!modal || !content) return;
+    try {
+        const sessionsRes = await fetch(`/api/patient/${patientId}/sessions?limit=100`);
+        const sessionsData = await sessionsRes.json();
+        const sessions = sessionsData.success && sessionsData.sessions ? sessionsData.sessions : [];
+        const stats = calculatePatientStats(sessions);
+        renderPatientDetails(patientId, sessions, stats);
+    } catch (e) {
+        console.error('Error cargando detalles del paciente', e);
+        content.innerHTML = '<p class="text-sm text-error">Error cargando detalles</p>';
+    }
+}
+
+function showDetailsModal(patientId) {
+    const modal = document.getElementById('detailsModal');
+    const title = document.getElementById('detailsTitle');
+    const content = document.getElementById('patientDetailsContent');
+    if (!modal || !title || !content) return;
+    title.textContent = `Detalles del paciente #${patientId}`;
+    content.innerHTML = `
+        <div class="text-center">
+            <div class="loading loading-spinner loading-lg text-primary"></div>
+            <p class="mt-2">Cargando detalles...</p>
+        </div>
+    `;
+    modal.showModal();
+    loadPatientDetails(patientId);
+}
+
+function fillRecordForm(record) {
+    document.getElementById('recordName').value = record.name || '';
+    document.getElementById('recordId').value = record.identifier || '';
+    document.getElementById('recordAge').value = record.age ?? '';
+}
+
+function resetRecordForm() {
+    editRecordId = null;
+    document.getElementById('recordName').value = '';
+    document.getElementById('recordId').value = '';
+    document.getElementById('recordAge').value = '';
+    document.getElementById('recordSaveBtn').innerHTML = '<i class="fas fa-save"></i> Guardar';
+    document.getElementById('recordCancelBtn').classList.add('hidden');
+}
+
+async function saveRecord() {
+    const name = document.getElementById('recordName').value.trim();
+    const identifier = document.getElementById('recordId').value.trim();
+    const ageValue = document.getElementById('recordAge').value;
+    const age = ageValue ? parseInt(ageValue, 10) : null;
+
+    if (!name) {
+        showToast('Nombre requerido', 'warning');
+        return;
+    }
+
+    const payload = { name, identifier, age };
+
+    try {
+        if (editRecordId) {
+            const res = await fetch(`/api/patient/${editRecordId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'No se pudo actualizar');
+            showToast('Registro actualizado', 'success');
+        } else {
+            const res = await fetch('/api/patient', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'No se pudo crear');
+            showToast('Registro creado', 'success');
+        }
+        resetRecordForm();
+        loadHistory();
+    } catch (e) {
+        console.error('Error guardando registro', e);
+        showToast('Error guardando registro', 'error');
+    }
+}
+
+async function performDelete(id) {
+    try {
+        const res = await fetch(`/api/patient/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'No se pudo eliminar');
+        showToast('Registro eliminado', 'success');
+        if (editRecordId === id) resetRecordForm();
+        loadHistory();
+    } catch (e) {
+        console.error('Error eliminando registro', e);
+        showToast('Error eliminando registro', 'error');
+    }
+}
+
+function requestDelete(id) {
+    pendingDeleteId = id;
+    const modal = document.getElementById('confirmDeleteModal');
+    const message = document.getElementById('deleteMessage');
+    if (message) {
+        const record = historyCache.find(r => String(r.id) === String(id));
+        const name = record?.name || `ID ${id}`;
+        message.textContent = `¿Eliminar el paciente ${name}?`;
+    }
+    if (modal) modal.showModal();
+}
+
 function updateStatus(status, connected) {
     const statusText = document.getElementById('statusText');
     const statusDot = document.getElementById('statusDot');
@@ -55,6 +427,11 @@ function updateStatus(status, connected) {
 }
 
 function updateData(data) {
+    updateStatus(data.status || 'Conectado', data.status !== 'Desconectado');
+    if (!sessionActive && !allowViewWithoutSession) {
+        return;
+    }
+
     const tempElement = document.getElementById('temperature');
     const bpmElement = document.getElementById('bpm');
     const tempCard = document.getElementById('tempCard');
@@ -85,8 +462,6 @@ function updateData(data) {
         bpmCard.className = 'card bg-base-200 shadow-lg';
         deactivateAlert();
     }
-    
-    updateStatus(data.status || 'Conectado', data.status !== 'Desconectado');
 }
 
 function initCharts() {
@@ -99,8 +474,8 @@ function initCharts() {
             datasets: [{
                 label: 'BPM',
                 data: pulseData,
-                borderColor: '#00ff41',
-                backgroundColor: 'rgba(0, 255, 65, 0.1)',
+                borderColor: '#1d4ed8',
+                backgroundColor: 'rgba(29, 78, 216, 0.08)',
                 borderWidth: 2,
                 fill: false,
                 tension: 0.4,
@@ -131,11 +506,11 @@ function initCharts() {
                 x: {
                     display: true,
                     grid: {
-                        color: 'rgba(0, 255, 65, 0.1)',
+                        color: 'rgba(29, 78, 216, 0.08)',
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#00ff41',
+                        color: '#1d4ed8',
                         font: {
                             size: 10
                         },
@@ -145,11 +520,11 @@ function initCharts() {
                 y: {
                     display: true,
                     grid: {
-                        color: 'rgba(0, 255, 65, 0.1)',
+                        color: 'rgba(29, 78, 216, 0.08)',
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#00ff41',
+                        color: '#1d4ed8',
                         font: {
                             size: 10
                         }
@@ -170,8 +545,8 @@ function initCharts() {
             datasets: [{
                 label: 'Temperatura (°C)',
                 data: [],
-                borderColor: '#00d4ff',
-                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                borderColor: '#0ea5e9',
+                backgroundColor: 'rgba(14, 165, 233, 0.12)',
                 borderWidth: 2,
                 fill: true,
                 tension: 0.4,
@@ -202,11 +577,11 @@ function initCharts() {
                 x: {
                     display: true,
                     grid: {
-                        color: 'rgba(0, 212, 255, 0.1)',
+                        color: 'rgba(14, 165, 233, 0.12)',
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#00d4ff',
+                        color: '#0ea5e9',
                         font: {
                             size: 10
                         },
@@ -216,11 +591,11 @@ function initCharts() {
                 y: {
                     display: true,
                     grid: {
-                        color: 'rgba(0, 212, 255, 0.1)',
+                        color: 'rgba(14, 165, 233, 0.12)',
                         drawBorder: false
                     },
                     ticks: {
-                        color: '#00d4ff',
+                        color: '#0ea5e9',
                         font: {
                             size: 10
                         }
@@ -377,10 +752,195 @@ function stopUpdates() {
     }
 }
 
+async function loadSession() {
+    try {
+        const res = await fetch('/api/patient/current');
+        const data = await res.json();
+        if (data.success) {
+            sessionActive = data.active;
+            currentPatient = data.patient;
+            refreshSessionUI();
+        }
+    } catch (e) {
+        console.error('Error cargando sesión', e);
+    }
+}
+
+async function loadPatientsBasic() {
+    const select = document.getElementById('patientSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">Cargando...</option>';
+    try {
+        const res = await fetch('/api/patient/list?limit=100');
+        const data = await res.json();
+        if (data.success) {
+            patientList = data.patients || [];
+            if (!patientList.length) {
+                select.innerHTML = '<option value="">Sin pacientes, crea uno en la gestión</option>';
+                return;
+            }
+            select.innerHTML = '<option value="">Selecciona un paciente...</option>';
+            patientList.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.name}${p.identifier ? ' | ' + p.identifier : ''}${p.age ? ' | ' + p.age + ' años' : ''}`;
+                select.appendChild(opt);
+            });
+        } else {
+            select.innerHTML = '<option value="">Error al cargar</option>';
+        }
+    } catch (e) {
+        console.error('Error cargando pacientes', e);
+        select.innerHTML = '<option value="">Error al cargar</option>';
+    }
+}
+
+async function startSessionFromSelect() {
+    const select = document.getElementById('patientSelect');
+    if (!select) return;
+    const id = select.value;
+    if (!id) {
+        showToast('Selecciona un paciente', 'warning');
+        return;
+    }
+    const patient = patientList.find(p => String(p.id) === String(id));
+    if (!patient) {
+        showToast('Paciente no encontrado', 'error');
+        return;
+    }
+    document.getElementById('patientName').value = patient.name || '';
+    document.getElementById('patientId').value = patient.identifier || '';
+    document.getElementById('patientAge').value = patient.age ?? '';
+    await startSession();
+}
+
+async function startSession() {
+    const name = document.getElementById('patientName').value.trim();
+    const identifier = document.getElementById('patientId').value.trim();
+    const ageValue = document.getElementById('patientAge').value;
+    const age = ageValue ? parseInt(ageValue, 10) : null;
+    const patientSelect = document.getElementById('patientSelect');
+    const patientId = patientSelect ? patientSelect.value : null;
+
+    if (!name) {
+        showToast('Selecciona un paciente', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/patient/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, identifier, age, patient_id: patientId || null })
+        });
+        const data = await res.json();
+        if (data.success) {
+            sessionActive = true;
+            currentPatient = data.patient;
+            resetCharts();
+            refreshSessionUI();
+            showToast('Sesión iniciada', 'success');
+        } else {
+            showToast(data.error || 'No se pudo iniciar', 'error');
+        }
+    } catch (e) {
+        console.error('Error iniciando sesión', e);
+        showToast('Error iniciando sesión', 'error');
+    }
+}
+
+async function endSession() {
+    if (!sessionActive) return;
+    try {
+        const res = await fetch('/api/patient/end', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showToast(`Sesión guardada. Promedio BPM: ${data.avg_bpm || '--'}, Temp: ${data.last_temp || '--'}`, 'success');
+            sessionActive = false;
+            currentPatient = null;
+            resetCharts();
+            refreshSessionUI();
+            loadHistory();
+        } else {
+            showToast(data.error || 'No se pudo cerrar sesión', 'error');
+        }
+    } catch (e) {
+        console.error('Error cerrando sesión', e);
+        showToast('Error cerrando sesión', 'error');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initCharts();
     setupAlertButton();
+    refreshSessionUI();
+    loadSession();
+    loadHistory();
+    loadPatientsBasic();
     startUpdates();
+
+    // Botones y eventos principales (verifica existencia por si no está la sección)
+    const startBtn = document.getElementById('startSessionBtn');
+    const endBtn = document.getElementById('endSessionBtn');
+    const historyReloadBtn = document.getElementById('historyReloadBtn');
+    const recordSaveBtn = document.getElementById('recordSaveBtn');
+    const recordCancelBtn = document.getElementById('recordCancelBtn');
+    const historyTable = document.getElementById('historyTableBody');
+    const recordsModal = document.getElementById('recordsModal');
+    const openRecordsModal = document.getElementById('openRecordsModal');
+    const detailsModal = document.getElementById('detailsModal');
+    const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const chooseRegisterBtn = document.getElementById('chooseRegisterBtn');
+    const chooseViewBtn = document.getElementById('chooseViewBtn');
+    const modeModal = document.getElementById('modeModal');
+    const patientSelect = document.getElementById('patientSelect');
+    const useSelectedBtn = document.getElementById('useSelectedBtn');
+    const refreshPatientsBtn = document.getElementById('refreshPatientsBtn');
+
+    if (startBtn) startBtn.addEventListener('click', startSession);
+    if (endBtn) endBtn.addEventListener('click', endSession);
+    if (historyReloadBtn) historyReloadBtn.addEventListener('click', () => { loadHistory(); loadPatientsBasic(); });
+    if (recordSaveBtn) recordSaveBtn.addEventListener('click', saveRecord);
+    if (recordCancelBtn) recordCancelBtn.addEventListener('click', resetRecordForm);
+    if (openRecordsModal && recordsModal) {
+        openRecordsModal.addEventListener('click', () => recordsModal.showModal());
+    }
+    if (confirmDeleteBtn && confirmDeleteModal) {
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (pendingDeleteId) {
+                await performDelete(pendingDeleteId);
+                pendingDeleteId = null;
+            }
+            confirmDeleteModal.close();
+        });
+    }
+    if (useSelectedBtn) useSelectedBtn.addEventListener('click', startSessionFromSelect);
+    if (refreshPatientsBtn) refreshPatientsBtn.addEventListener('click', loadPatientsBasic);
+    if (historyTable) {
+        historyTable.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            const action = btn?.dataset.action;
+            const id = btn?.dataset.id;
+            if (!action || !id) return;
+            if (action === 'edit') {
+                const record = historyCache.find(r => String(r.id) === String(id));
+                if (record) {
+                    editRecordId = id;
+                    fillRecordForm(record);
+                    document.getElementById('recordSaveBtn').innerHTML = '<i class="fas fa-save"></i> Actualizar';
+                    if (recordCancelBtn) recordCancelBtn.classList.remove('hidden');
+                    if (recordsModal) recordsModal.showModal();
+                }
+            } else if (action === 'delete') {
+                requestDelete(id);
+            } else if (action === 'view') {
+                showDetailsModal(id);
+            }
+        });
+    }
+
+    // Modal inicial eliminado: usar selector para elegir paciente.
 });
 
 window.addEventListener('beforeunload', stopUpdates);

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor Cardíaco - Arduino</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amazon+Ember:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -24,96 +27,269 @@
         .animate-shake {
             animation: shake 0.5s;
         }
+
+        /* Aplicar fuente Amazon Ember */
+        body {
+            font-family: 'Amazon Ember', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .font-amazon {
+            font-family: 'Amazon Ember', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
     </style>
 </head>
-<body class="min-h-screen bg-base-200 flex items-center justify-center p-4">
-    <div class="card bg-base-100 shadow-2xl w-full max-w-6xl">
-        <div class="card-body p-8 md:p-12">
-            <header class="text-center mb-8">
-                <h1 class="text-4xl md:text-5xl font-bold mb-4">
-                    <i class="fas fa-heartbeat text-error mr-3"></i>
-                    Monitor de Signos Vitales
-                </h1>
-                <div class="flex items-center justify-center gap-3 text-lg" id="statusIndicator">
-                    <span class="w-3 h-3 rounded-full bg-base-300 animate-pulse-dot" id="statusDot"></span>
-                    <span id="statusText" class="font-medium">Conectando...</span>
-                </div>
-            </header>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div class="card bg-base-200 shadow-lg" id="tempCard">
-                    <div class="card-body items-center text-center">
-                        <div class="text-6xl mb-4 text-info">
-                            <i class="fas fa-thermometer-half"></i>
+<body class="min-h-screen bg-slate-50">
+    <div class="flex items-center justify-center p-4">
+        <div class="card bg-base-100 shadow-2xl w-full max-w-6xl">
+                <div class="card-body p-8 md:p-12 space-y-6">
+                    <header class="text-center mb-4">
+                        <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                            <i class="fas fa-heartbeat text-primary mr-3"></i>
+                            Monitor de Signos Vitales
+                        </h1>
+                        <div class="flex items-center justify-center gap-3 text-lg" id="statusIndicator">
+                            <span class="w-3 h-3 rounded-full bg-base-300 animate-pulse-dot" id="statusDot"></span>
+                            <span id="statusText" class="font-medium">Conectando...</span>
                         </div>
-                        <h2 class="card-title text-2xl mb-4">Temperatura</h2>
-                        <div class="text-6xl md:text-7xl font-bold text-info mb-2" id="temperature">--</div>
-                        <div class="text-xl opacity-70">
-                            <i class="fas fa-temperature-high"></i> °C
+                    </header>
+
+                    <!-- Selección de Paciente -->
+                    <div class="card bg-base-200 shadow-lg">
+                        <div class="card-body">
+                            <h3 class="card-title text-xl mb-4">
+                                <i class="fas fa-user-plus text-primary mr-2"></i>
+                                Selecciona paciente para monitorear
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="form-control md:col-span-2">
+                                    <label class="label"><span class="label-text font-semibold">Paciente</span></label>
+                                    <select id="patientSelect" class="select select-bordered w-full">
+                                        <option value="">Selecciona un paciente...</option>
+                                    </select>
+                                    <label class="label">
+                                        <span class="label-text-alt">Cargarás datos en vivo para el paciente elegido.</span>
+                                    </label>
+                                </div>
+                                <div class="form-control">
+                                    <label class="label"><span class="label-text font-semibold">Acciones</span></label>
+                                    <div class="flex gap-2">
+                                        <button id="useSelectedBtn" class="btn btn-success flex-1 text-white">
+                                            <i class="fas fa-play mr-1"></i> Usar
+                                        </button>
+                                        <button id="refreshPatientsBtn" class="btn btn-outline">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </div>
+                                    <label class="label">
+                                        <span class="label-text-alt">¿Nuevo? Usa el botón flotante para crear/editar.</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <!-- Campos ocultos para compatibilidad con startSession -->
+                            <input id="patientName" type="hidden">
+                            <input id="patientId" type="hidden">
+                            <input id="patientAge" type="hidden">
+                            <div class="flex flex-wrap gap-3 mt-2">
+                                <button id="startSessionBtn" class="btn btn-success gap-2 hidden">
+                                    <i class="fas fa-play"></i> Iniciar registro
+                                </button>
+                                <button id="endSessionBtn" class="btn btn-outline btn-error gap-2" disabled>
+                                    <i class="fas fa-stop"></i> Cerrar registro
+                                </button>
+                                <span id="sessionInfo" class="text-sm text-gray-600"></span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="card bg-base-200 shadow-lg" id="bpmCard">
-                    <div class="card-body items-center text-center">
-                        <div class="text-6xl mb-4 text-error">
-                            <i class="fas fa-heartbeat"></i>
-                        </div>
-                        <h2 class="card-title text-2xl mb-4">Pulso Cardíaco</h2>
-                        <div class="text-6xl md:text-7xl font-bold text-error mb-2" id="bpm">--</div>
-                        <div class="text-xl opacity-70">
-                            <i class="fas fa-heart"></i> BPM
+
+                    <!-- Indicador si no hay sesión -->
+                    <div id="noSession" class="alert alert-warning shadow-lg">
+                        <div>
+                            <i class="fas fa-info-circle"></i>
+                            <span>Registra un paciente para iniciar el monitoreo.</span>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <div class="text-center mb-8">
-                <button id="alertButton" class="btn btn-primary btn-lg gap-2" disabled>
-                    <i class="fas fa-bell"></i>
-                    <span>Activar Alerta</span>
-                </button>
-                <div id="alertMessage" class="mt-6 min-h-[60px] flex items-center justify-center"></div>
-            </div>
+                    <div id="dataSection" class="space-y-6 hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="card bg-base-100 shadow-lg" id="tempCard">
+                                <div class="card-body items-center text-center">
+                                    <div class="text-6xl mb-4 text-info">
+                                        <i class="fas fa-thermometer-half"></i>
+                                    </div>
+                                    <h2 class="card-title text-2xl mb-4">Temperatura</h2>
+                                    <div class="text-6xl md:text-7xl font-bold text-info mb-2" id="temperature">--</div>
+                                    <div class="text-xl opacity-70">
+                                        <i class="fas fa-temperature-high"></i> °C
+                                    </div>
+                                </div>
+                            </div>
 
-            <!-- Gráficos de Monitoreo -->
-            <div class="grid grid-cols-1 gap-6">
-                <!-- Gráfico de Pulso Cardíaco (ECG style) -->
-                <div class="card bg-base-200 shadow-lg">
-                    <div class="card-body">
-                        <h3 class="card-title text-xl mb-2">
-                            <i class="fas fa-heartbeat text-error mr-2"></i>
-                            Monitoreo de Pulso Cardíaco
-                        </h3>
-                        <div class="bg-black rounded-lg p-4" style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);">
-                            <canvas id="pulseChart" style="max-height: 200px;"></canvas>
+                    <div class="card bg-base-100 shadow-lg" id="bpmCard">
+                                <div class="card-body items-center text-center">
+                            <div class="text-6xl mb-4 text-primary">
+                                        <i class="fas fa-heartbeat"></i>
+                                    </div>
+                                    <h2 class="card-title text-2xl mb-4">Pulso Cardíaco</h2>
+                            <div class="text-6xl md:text-7xl font-bold text-primary mb-2" id="bpm">--</div>
+                                    <div class="text-xl opacity-70">
+                                        <i class="fas fa-heart"></i> BPM
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex justify-between items-center mt-2 text-sm">
-                            <span class="text-gray-600">BPM Actual: <span id="currentBPM" class="font-bold text-error">--</span></span>
-                            <span class="text-gray-600">Promedio: <span id="avgBPM" class="font-bold">--</span></span>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Gráfico de Temperatura -->
-                <div class="card bg-base-200 shadow-lg">
-                    <div class="card-body">
-                        <h3 class="card-title text-xl mb-2">
-                            <i class="fas fa-thermometer-half text-info mr-2"></i>
-                            Monitoreo de Temperatura
-                        </h3>
-                        <div class="bg-black rounded-lg p-4" style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);">
-                            <canvas id="tempChart" style="max-height: 200px;"></canvas>
+                        <div class="text-center mb-6">
+                            <button id="alertButton" class="btn btn-primary btn-lg gap-2" disabled>
+                                <i class="fas fa-bell"></i>
+                                <span>Activar Alerta</span>
+                            </button>
+                            <div id="alertMessage" class="mt-4 min-h-[60px] flex items-center justify-center"></div>
                         </div>
-                        <div class="flex justify-between items-center mt-2 text-sm">
-                            <span class="text-gray-600">Temp Actual: <span id="currentTemp" class="font-bold text-info">--</span> °C</span>
-                            <span class="text-gray-600">Máx: <span id="maxTemp" class="font-bold">--</span> °C</span>
+
+                        <!-- Gráficos de Monitoreo -->
+                        <div class="grid grid-cols-1 gap-6">
+                            <!-- Gráfico de Pulso Cardíaco (ECG style) -->
+                            <div class="card bg-base-100 shadow-lg">
+                                <div class="card-body">
+                                    <h3 class="card-title text-xl mb-2">
+                                        <i class="fas fa-heartbeat text-primary mr-2"></i>
+                                        Monitoreo de Pulso Cardíaco
+                                    </h3>
+                                    <div class="bg-white rounded-lg p-4 border border-slate-200">
+                                        <canvas id="pulseChart" style="max-height: 200px;"></canvas>
+                                    </div>
+                                    <div class="flex justify-between items-center mt-2 text-sm">
+                                        <span class="text-gray-600">BPM Actual: <span id="currentBPM" class="font-bold text-primary">--</span></span>
+                                        <span class="text-gray-600">Promedio: <span id="avgBPM" class="font-bold text-slate-800">--</span></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Gráfico de Temperatura -->
+                            <div class="card bg-base-100 shadow-lg">
+                                <div class="card-body">
+                                    <h3 class="card-title text-xl mb-2">
+                                        <i class="fas fa-thermometer-half text-info mr-2"></i>
+                                        Monitoreo de Temperatura
+                                    </h3>
+                                    <div class="bg-white rounded-lg p-4 border border-slate-200">
+                                        <canvas id="tempChart" style="max-height: 200px;"></canvas>
+                                    </div>
+                                    <div class="flex justify-between items-center mt-2 text-sm">
+                                        <span class="text-gray-600">Temp Actual: <span id="currentTemp" class="font-bold text-info">--</span> °C</span>
+                                        <span class="text-gray-600">Máx: <span id="maxTemp" class="font-bold">--</span> °C</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
     </div>
+
+    <!-- Modal inferior para gestión de registros -->
+    <dialog id="recordsModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box w-full max-w-4xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-2xl font-bold"><i class="fas fa-database text-primary mr-2"></i>Gestión de Registros</h3>
+                <form method="dialog">
+                    <button id="closeRecordsModal" class="btn btn-ghost btn-sm">Cerrar</button>
+                </form>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-semibold">Nombre completo</span></label>
+                    <input id="recordName" type="text" class="input input-bordered" placeholder="Paciente" required>
+                </div>
+                    <div class="form-control">
+                    <label class="label"><span class="label-text font-semibold">Documento / ID</span></label>
+                        <input id="recordId" type="text" class="input input-bordered" placeholder="DNI / ID" maxlength="8" pattern="\\d{0,8}" inputmode="numeric">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-semibold">Edad</span></label>
+                        <input id="recordAge" type="number" min="0" max="999" class="input input-bordered" placeholder="Edad" inputmode="numeric">
+                </div>
+            </div>
+            <div class="flex gap-3 mt-4">
+                <button id="recordSaveBtn" class="btn btn-primary btn-sm gap-2">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+                <button id="recordCancelBtn" class="btn btn-ghost" hidden>Cancelar edición</button>
+                <button id="historyReloadBtn" class="btn btn-outline btn-primary btn-sm">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
+
+            <div class="overflow-x-auto mt-4">
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>ID/Doc</th>
+                            <th>Edad</th>
+                            <th>Temp Final</th>
+                            <th>Prom BPM</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <tr>
+                            <td colspan="8" class="text-center text-sm text-gray-500">Sin registros</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>Cerrar</button></form>
+    </dialog>
+
+    <!-- Modal inferior Detalles del Paciente -->
+    <dialog id="detailsModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-3">
+                <h3 id="detailsTitle" class="text-xl font-bold flex items-center gap-2">
+                    <i class="fas fa-chart-line text-primary"></i>
+                    Detalles del paciente
+                </h3>
+                <form method="dialog">
+                    <button class="btn btn-ghost btn-sm">Cerrar</button>
+                </form>
+            </div>
+            <div id="patientDetailsContent" class="space-y-4">
+                <div class="text-center">
+                    <div class="loading loading-spinner loading-lg text-primary"></div>
+                    <p class="mt-2">Cargando detalles...</p>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Modal confirmación eliminación -->
+    <dialog id="confirmDeleteModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-2">Confirmar eliminación</h3>
+            <p id="deleteMessage" class="text-sm text-gray-600 mb-4">¿Eliminar este paciente?</p>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost">Cancelar</button>
+                </form>
+                <button id="confirmDeleteBtn" class="btn btn-error">Eliminar</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Botón flotante para abrir el modal -->
+    <button id="openRecordsModal" type="button" class="btn btn-primary btn-circle fixed bottom-6 right-6 shadow-lg">
+        <i class="fas fa-database"></i>
+    </button>
 
     <script src="{{ url_for('static', filename='js/config.const.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

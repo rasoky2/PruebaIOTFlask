@@ -4,6 +4,7 @@ Sistema de monitoreo de signos vitales que conecta Arduino (ESP32) con una aplic
 
 ## Características
 
+- Registro de paciente previo al monitoreo
 - Lectura de temperatura corporal mediante sensor MLX90614
 - Detección de pulso cardíaco (BPM) mediante sensor analógico
 - Interfaz web en tiempo real con gráficos estilo monitor médico
@@ -11,6 +12,7 @@ Sistema de monitoreo de signos vitales que conecta Arduino (ESP32) con una aplic
 - Sistema de alertas con sonido cuando los valores están fuera de rango
 - Botón manual para reproducir alerta
 - Configuración mediante archivos (sin panel web)
+- Guarda al cierre de sesión: temperatura final y promedio de BPM en SQLite (`patients.db`)
 
 ## Requisitos
 
@@ -57,7 +59,9 @@ python app.py
 
 3. Colocar el dedo en el sensor de pulso
 
-4. La interfaz mostrará:
+4. Registrar paciente en la interfaz (nombre obligatorio) y luego iniciar registro
+
+5. La interfaz mostrará:
    - Temperatura y pulso cardíaco en tiempo real
    - Gráficos de monitoreo (estilo monitor médico)
    - Estado de conexión
@@ -143,4 +147,5 @@ const FRONTEND_CONFIG = {
 - Las alertas se activan automáticamente cuando los valores están fuera de rango
 - El botón "Activar Alerta" permite reproducir manualmente el sonido de alerta
 - Los gráficos muestran hasta 50 puntos de datos (configurable en `config.const.js`)
+- Al cerrar sesión de paciente se guarda en `patients.db` la temperatura final y el promedio de BPM
 

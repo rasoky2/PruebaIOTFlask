@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Pacientes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amazon+Ember:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            min-height: 100vh;
+            font-family: 'Amazon Ember', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .font-amazon {
+            font-family: 'Amazon Ember', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-base-200">
+    <div class="drawer drawer-end">
+        <input id="drawer-patients" type="checkbox" class="drawer-toggle">
+        <div class="drawer-content p-6">
+            <div class="max-w-5xl mx-auto space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold"><i class="fas fa-database text-primary mr-2"></i>Gestión de Pacientes</h1>
+                        <p class="text-sm text-gray-600">Crea, edita o elimina registros. Los cierres de sesión desde el monitor también se guardan aquí.</p>
+                    </div>
+                    <a href="/" class="btn btn-ghost"><i class="fas fa-arrow-left mr-2"></i>Volver al monitor</a>
+                </div>
+                <div class="alert alert-info shadow-lg">
+                    <i class="fas fa-lightbulb"></i>
+                    <div>
+                        <h3 class="font-bold">Tip</h3>
+                        <div class="text-sm">Usa el botón flotante para abrir/cerrar el panel lateral y gestionar registros sin recargar.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="drawer-side">
+            <label for="drawer-patients" class="drawer-overlay"></label>
+            <div class="w-full max-w-4xl bg-base-100 p-6 space-y-4 overflow-y-auto">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-2xl font-bold"><i class="fas fa-database text-primary mr-2"></i>Registros</h3>
+                    <label for="drawer-patients" class="btn btn-ghost btn-sm">Cerrar</label>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Nombre completo</span></label>
+                        <input id="recordName" type="text" class="input input-bordered" placeholder="Paciente" required>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Documento / ID</span></label>
+                        <input id="recordId" type="text" class="input input-bordered" placeholder="DNI / ID" maxlength="8" pattern="\\d{0,8}" inputmode="numeric">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">Edad</span></label>
+                        <input id="recordAge" type="number" min="0" max="999" class="input input-bordered" placeholder="Edad" inputmode="numeric">
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <button id="recordSaveBtn" class="btn btn-primary btn-sm gap-2">
+                        <i class="fas fa-save"></i> Crear Paciente
+                    </button>
+                    <button id="recordNewBtn" class="btn btn-outline btn-success gap-2">
+                        <i class="fas fa-plus"></i> Nuevo
+                    </button>
+                    <button id="recordCancelBtn" class="btn btn-ghost gap-2" hidden>
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                </div>
+                <div class="flex gap-3 mt-2">
+                    <button id="historyReloadBtn" class="btn btn-outline btn-primary btn-sm">
+                        <i class="fas fa-sync-alt"></i> Refrescar Lista
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>ID/Doc</th>
+                                <th>Edad</th>
+                                <th>Temp Final</th>
+                                <th>Prom BPM</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="8" class="text-center text-sm text-gray-500">Sin registros</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Sesiones -->
+    <dialog id="sessionsModal" class="modal">
+        <div class="modal-box max-w-3xl">
+            <h3 id="sessionsTitle" class="font-bold text-lg mb-4">Sesiones</h3>
+            <div class="overflow-x-auto">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Prom BPM</th>
+                            <th>Min BPM</th>
+                            <th>Max BPM</th>
+                            <th>Temp Final</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionsTableBody">
+                        <tr><td colspan="5" class="text-center text-sm text-gray-500">Cargando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-action">
+                <button id="sessionsReloadBtn" class="btn btn-outline btn-sm">
+                    <i class="fas fa-sync-alt mr-1"></i> Refrescar
+                </button>
+                <form method="dialog">
+                    <button class="btn btn-sm">Cerrar</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Modal inferior Detalles del Paciente -->
+    <dialog id="detailsModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-3">
+                <h3 id="detailsTitle" class="text-xl font-bold flex items-center gap-2">
+                    <i class="fas fa-chart-line text-primary"></i>
+                    Detalles del paciente
+                </h3>
+                <form method="dialog">
+                    <button class="btn btn-ghost btn-sm">Cerrar</button>
+                </form>
+            </div>
+            <div id="patientDetailsContent" class="space-y-4">
+                <div class="text-center">
+                    <div class="loading loading-spinner loading-lg text-primary"></div>
+                    <p class="mt-2">Cargando detalles...</p>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Modal confirmación eliminación -->
+    <dialog id="confirmDeleteModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-2">Confirmar eliminación</h3>
+            <p id="deleteMessage" class="text-sm text-gray-600 mb-4">¿Eliminar este paciente?</p>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost">Cancelar</button>
+                </form>
+                <button id="confirmDeleteBtn" class="btn btn-error">Eliminar</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Botón flotante para abrir el drawer -->
+    <label for="drawer-patients" class="btn btn-primary btn-circle fixed bottom-6 right-6 shadow-lg">
+        <i class="fas fa-database"></i>
+    </label>
+
+    <script src="{{ url_for('static', filename='js/config.const.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/patients.js') }}"></script>
+</body>
+</html>
+
