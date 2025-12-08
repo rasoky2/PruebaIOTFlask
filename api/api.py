@@ -24,6 +24,14 @@ def register_routes(app, deps):
 
     @app.route('/api/data')
     def get_data():
+        try:
+            blue = "\033[94m"
+            reset = "\033[0m"
+            print(f"[API/DATA] Temp={blue}{latest_data.get('temperature', 0):.1f}°C{reset} "
+                  f"BPM={blue}{latest_data.get('bpm', 0)}{reset} "
+                  f"Status={latest_data.get('status', 'Desconectado')}")
+        except Exception:
+            pass
         return jsonify(latest_data)
 
     @app.route('/api/alert/trigger')

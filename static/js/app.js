@@ -1,6 +1,7 @@
 let alertSound = null;
 let isAlertActive = false;
 let updateInterval = null;
+const state = window.AppState || {};
 
 // Gráficos
 let pulseChart = null;
@@ -8,24 +9,7 @@ let tempChart = null;
 const maxDataPoints = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.maxChartDataPoints) 
     ? FRONTEND_CONFIG.maxChartDataPoints 
     : 50;
-let pulseData = [];
-let tempData = [];
-let timeLabels = [];
-let pulseSum = 0;
-let tempMax = 0;
-
-// Sesión de paciente
-let sessionActive = false;
-let currentPatient = null;
-// Permite ver datos en vivo aunque no haya sesión activa
-let allowViewWithoutSession = false;
-let patientList = [];
-
-// Historial
-// Gestion de registros (solo si hay elementos en la página)
-let historyCache = [];
-let editRecordId = null;
-let pendingDeleteId = null;
+// Estado centralizado (ver state.js para getters/setters)
 
 // Polling y backoff
 let fetchTimer = null;
@@ -75,11 +59,11 @@ function showToast(message, type = 'info') {
 }
 
 function resetCharts() {
-    pulseData = [];
-    tempData = [];
-    timeLabels = [];
-    pulseSum = 0;
-    tempMax = 0;
+    state.pulseData = [];
+    state.tempData = [];
+    state.timeLabels = [];
+    state.pulseSum = 0;
+    state.tempMax = 0;
     if (pulseChart) {
         pulseChart.data.labels = [];
         pulseChart.data.datasets[0].data = [];
@@ -103,13 +87,13 @@ function refreshSessionUI() {
     const endBtn = document.getElementById('endSessionBtn');
     const sessionInfo = document.getElementById('sessionInfo');
 
-    if (sessionActive && currentPatient) {
+    if (state.sessionActive && state.currentPatient) {
         dataSection.classList.remove('hidden');
         noSession.classList.add('hidden');
         startBtn.disabled = true;
         endBtn.disabled = false;
-        sessionInfo.textContent = `Monitoreando a ${currentPatient.name}`;
-    } else if (allowViewWithoutSession) {
+        sessionInfo.textContent = `Monitoreando a ${state.currentPatient.name}`;
+    } else if (state.allowViewWithoutSession) {
         dataSection.classList.remove('hidden');
         noSession.classList.add('hidden');
         startBtn.disabled = false;
@@ -155,8 +139,8 @@ async function loadHistory() {
         const res = await fetch('/api/patient/history?limit=50');
         const data = await res.json();
         if (data.success) {
-            historyCache = data.records || [];
-            renderHistory(historyCache);
+            state.historyCache = data.records || [];
+            renderHistory(state.historyCache);
         } else {
             renderHistory([]);
         }
@@ -227,7 +211,7 @@ function calculatePatientStats(sessions) {
 function renderPatientDetails(patientId, sessions, stats) {
     const container = document.getElementById('patientDetailsContent');
     if (!container) return;
-    const patient = historyCache.find(p => String(p.id) === String(patientId));
+    const patient = state.historyCache.find(p => String(p.id) === String(patientId));
     const statsHtml = `
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div class="stat bg-base-100 rounded-lg p-4">
@@ -435,9 +419,6 @@ function updateStatus(status, connected) {
 
 function updateData(data) {
     updateStatus(data.status || 'Conectado', data.status !== 'Desconectado');
-    if (!sessionActive && !allowViewWithoutSession) {
-        return;
-    }
 
     const tempElement = document.getElementById('temperature');
     const bpmElement = document.getElementById('bpm');
@@ -477,10 +458,10 @@ function initCharts() {
     pulseChart = new Chart(pulseCtx, {
         type: 'line',
         data: {
-            labels: timeLabels,
+            labels: state.timeLabels,
             datasets: [{
                 label: 'BPM',
-                data: pulseData,
+                data: state.pulseData,
                 borderColor: '#1d4ed8',
                 backgroundColor: 'rgba(29, 78, 216, 0.08)',
                 borderWidth: 2,
@@ -622,22 +603,22 @@ function updatePulseChart(bpm) {
     const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     
     const bpmValue = bpm || 0;
-    pulseData.push(bpmValue);
+    state.pulseData.push(bpmValue);
     
     // Sincronizar timeLabels solo para el gráfico de pulso
-    if (pulseData.length !== timeLabels.length) {
-        timeLabels.push(timeStr);
+    if (state.pulseData.length !== state.timeLabels.length) {
+        state.timeLabels.push(timeStr);
     } else {
-        timeLabels[timeLabels.length - 1] = timeStr;
+        state.timeLabels[state.timeLabels.length - 1] = timeStr;
     }
     
-    if (pulseData.length > maxDataPoints) {
-        pulseData.shift();
-        timeLabels.shift();
+    if (state.pulseData.length > maxDataPoints) {
+        state.pulseData.shift();
+        state.timeLabels.shift();
     }
     
     // Calcular promedio de los valores válidos (> 0)
-    const validBPMs = pulseData.filter(v => v > 0);
+    const validBPMs = state.pulseData.filter(v => v > 0);
     const avg = validBPMs.length > 0 
         ? Math.round(validBPMs.reduce((a, b) => a + b, 0) / validBPMs.length) 
         : 0;
@@ -645,8 +626,8 @@ function updatePulseChart(bpm) {
     document.getElementById('currentBPM').textContent = bpmValue || '--';
     document.getElementById('avgBPM').textContent = avg || '--';
     
-    pulseChart.data.labels = [...timeLabels];
-    pulseChart.data.datasets[0].data = [...pulseData];
+    pulseChart.data.labels = [...state.timeLabels];
+    pulseChart.data.datasets[0].data = [...state.pulseData];
     pulseChart.update('none');
 }
 
@@ -654,33 +635,33 @@ function updateTempChart(temp) {
     if (!tempChart) return;
     
     const tempValue = temp || 0;
-    tempData.push(tempValue);
+    state.tempData.push(tempValue);
     
-    if (tempData.length > maxDataPoints) {
-        tempData.shift();
+    if (state.tempData.length > maxDataPoints) {
+        state.tempData.shift();
     }
     
     // Sincronizar con timeLabels del gráfico de pulso
-    if (tempChart.data.labels.length !== timeLabels.length) {
-        tempChart.data.labels = [...timeLabels];
+    if (tempChart.data.labels.length !== state.timeLabels.length) {
+        tempChart.data.labels = [...state.timeLabels];
     }
     
     // Asegurar que tempData tenga la misma longitud que timeLabels
-    while (tempData.length < timeLabels.length) {
-        tempData.unshift(tempValue);
+    while (state.tempData.length < state.timeLabels.length) {
+        state.tempData.unshift(tempValue);
     }
-    while (tempData.length > timeLabels.length) {
-        tempData.shift();
+    while (state.tempData.length > state.timeLabels.length) {
+        state.tempData.shift();
     }
     
-    tempChart.data.datasets[0].data = [...tempData];
+    tempChart.data.datasets[0].data = [...state.tempData];
     
-    if (tempValue > tempMax) {
-        tempMax = tempValue;
+    if (tempValue > state.tempMax) {
+        state.tempMax = tempValue;
     }
     
     document.getElementById('currentTemp').textContent = tempValue ? tempValue.toFixed(1) : '--';
-    document.getElementById('maxTemp').textContent = tempMax ? tempMax.toFixed(1) : '--';
+    document.getElementById('maxTemp').textContent = state.tempMax ? state.tempMax.toFixed(1) : '--';
     
     tempChart.update('none');
 }
@@ -721,6 +702,9 @@ function scheduleFetch(delay = baseInterval) {
 }
 
 async function fetchData() {
+    if (!liveUpdatesEnabled) {
+        return;
+    }
     try {
         const response = await fetch('/api/data');
         const data = await response.json();
@@ -749,12 +733,11 @@ function startUpdates() {
     baseInterval = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.updateInterval) 
         ? FRONTEND_CONFIG.updateInterval 
         : 500;
-    scheduleFetch(0);
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             if (fetchTimer) clearTimeout(fetchTimer);
             updateStatus('Pausado (fondo)', false);
-        } else {
+        } else if (liveUpdatesEnabled) {
             errorStreak = 0;
             scheduleFetch(0);
         }
@@ -775,13 +758,31 @@ function stopUpdates() {
     }
 }
 
+function enableLiveUpdates() {
+    if (state.liveUpdatesEnabled) return;
+    state.liveUpdatesEnabled = true;
+    errorStreak = 0;
+    scheduleFetch(0);
+}
+
+function disableLiveUpdates() {
+    state.liveUpdatesEnabled = false;
+    stopUpdates();
+    updateStatus('En espera', false);
+}
+
 async function loadSession() {
     try {
         const res = await fetch('/api/patient/current');
         const data = await res.json();
         if (data.success) {
-            sessionActive = data.active;
-            currentPatient = data.patient;
+            state.sessionActive = data.active;
+            state.currentPatient = data.patient;
+            if (state.sessionActive) {
+                enableLiveUpdates();
+            } else {
+                disableLiveUpdates();
+            }
             refreshSessionUI();
         }
     } catch (e) {
@@ -797,13 +798,13 @@ async function loadPatientsBasic() {
         const res = await fetch('/api/patient/list?limit=100');
         const data = await res.json();
         if (data.success) {
-            patientList = data.patients || [];
-            if (!patientList.length) {
+            state.patientList = data.patients || [];
+            if (!state.patientList.length) {
                 select.innerHTML = '<option value="">Sin pacientes, crea uno en la gestión</option>';
                 return;
             }
             select.innerHTML = '<option value="">Selecciona un paciente...</option>';
-            patientList.forEach(p => {
+            state.patientList.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
                 opt.textContent = `${p.name}${p.identifier ? ' | ' + p.identifier : ''}${p.age ? ' | ' + p.age + ' años' : ''}`;
@@ -826,7 +827,7 @@ async function startSessionFromSelect() {
         showToast('Selecciona un paciente', 'warning');
         return;
     }
-    const patient = patientList.find(p => String(p.id) === String(id));
+    const patient = state.patientList.find(p => String(p.id) === String(id));
     if (!patient) {
         showToast('Paciente no encontrado', 'error');
         return;
@@ -858,10 +859,11 @@ async function startSession() {
         });
         const data = await res.json();
         if (data.success) {
-            sessionActive = true;
-            currentPatient = data.patient;
+            state.sessionActive = true;
+            state.currentPatient = data.patient;
             resetCharts();
             refreshSessionUI();
+            enableLiveUpdates();
             showToast('Sesión iniciada', 'success');
         } else {
             showToast(data.error || 'No se pudo iniciar', 'error');
@@ -873,16 +875,17 @@ async function startSession() {
 }
 
 async function endSession() {
-    if (!sessionActive) return;
+    if (!state.sessionActive) return;
     try {
         const res = await fetch('/api/patient/end', { method: 'POST' });
         const data = await res.json();
         if (data.success) {
             showToast(`Sesión guardada. Promedio BPM: ${data.avg_bpm || '--'}, Temp: ${data.last_temp || '--'}`, 'success');
-            sessionActive = false;
-            currentPatient = null;
+            state.sessionActive = false;
+            state.currentPatient = null;
             resetCharts();
             refreshSessionUI();
+            disableLiveUpdates();
             loadHistory();
         } else {
             showToast(data.error || 'No se pudo cerrar sesión', 'error');

@@ -20,7 +20,8 @@ latest_data = {
     'temperature': 0.0,
     'bpm': 0,
     'status': 'Desconectado',
-    'alert': False
+    'alert': False,
+    'raw_line': None
 }
 
 def init_arduino(config=None):
@@ -76,6 +77,22 @@ def read_arduino_loop(config=None, session_state=None):
                         temp < config.get('temp_min', DEFAULT_ARDUINO_CONFIG['temp_min']) or
                         bpm > config.get('bpm_max', DEFAULT_ARDUINO_CONFIG['bpm_max']) or
                         (bpm < config.get('bpm_min', DEFAULT_ARDUINO_CONFIG['bpm_min']) and bpm > 0)
+                    )
+
+                    # Traza básica para ver lo que llega por serial
+                    raw_line = data.get('raw_line')
+                    if raw_line:
+                        print(f"[SERIAL] {raw_line}")
+                    # Traza compacta de valores, incluso si son 0 (coloreado azul)
+                    temp_val = data.get('temperature', 0)
+                    bpm_val = data.get('bpm', 0)
+                    status_val = data.get('status', 'Desconectado')
+                    blue = "\033[94m"
+                    reset = "\033[0m"
+                    print(
+                        f"[DATA] Temp={blue}{temp_val:.1f}°C{reset} "
+                        f"BPM={blue}{bpm_val}{reset} "
+                        f"Status={status_val}"
                     )
 
                     # Si hay sesión activa, acumular datos

@@ -73,7 +73,8 @@ class ArduinoReader:
                         'temperature': float(temp_match.group(1)) if temp_match else 0.0,
                         'bpm': int(bpm_match.group(1)) if bpm_match else 0,
                         'status': status_match.group(1) if status_match else 'Leyendo...',
-                        'timestamp': time.time()
+                        'timestamp': time.time(),
+                        'raw_line': line
                     }
                     return data
         except Exception as e:

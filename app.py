@@ -5,7 +5,6 @@ import json
 import os
 from schema.schema import (
     init_db,
-    save_patient_record,
     list_patient_records,
     create_patient,
     update_patient,
@@ -19,12 +18,9 @@ from core.arduino import (
     latest_data,
     init_arduino,
     read_arduino_loop,
-    disconnect_arduino,
-    is_arduino_connected,
-    get_arduino_port,
-    reconnect_arduino,
 )
 from core.arduino_serial import ArduinoReader
+from api.api import register_routes
 
 # Intentar importar configuración manual
 try:
@@ -111,8 +107,6 @@ def _compute_avg_bpm():
         return 0
     return round(session_state['bpm_sum'] / session_state['bpm_count'], 1)
 
-
-from api.api import register_routes
 
 register_routes(app, {
     'config': config,
