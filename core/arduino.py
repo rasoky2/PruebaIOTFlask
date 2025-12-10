@@ -67,7 +67,7 @@ def read_arduino_loop(config=None, session_state=None):
             try:
                 data = reader.read_data()
                 if data:
-                    latest_data = data
+                    latest_data.update(data)
 
                     # Determinar si hay alerta según configuración
                     temp = data.get('temperature', 0)
@@ -171,9 +171,9 @@ def get_sensor_data():
 def reset_sensor_data():
     """Resetea los datos del sensor a valores por defecto"""
     global latest_data
-    latest_data = {
+    latest_data.update({
         'temperature': 0.0,
         'bpm': 0,
         'status': 'Desconectado',
         'alert': False
-    }
+    })
