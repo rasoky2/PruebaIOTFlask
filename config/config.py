@@ -3,21 +3,6 @@ Archivo de configuración manual para el Monitor Cardíaco
 Modifica estos valores según tus necesidades
 """
 
-# ============================================
-# CONFIGURACIÓN DE CONEXIÓN SERIAL
-# ============================================
-
-# Puerto COM manual (None = detección automática)
-# Ejemplos: 'COM3', 'COM4', '/dev/ttyUSB0' (Linux), '/dev/tty.usbserial' (Mac)
-SERIAL_PORT = None
-
-# Velocidad de comunicación (Baudrate)
-# Opciones comunes: 9600, 19200, 38400, 57600, 115200
-SERIAL_BAUDRATE = 115200
-
-# Timeout para lectura serial (segundos)
-SERIAL_TIMEOUT = 1
-
 
 # ============================================
 # UMBRALES DE ALERTA
@@ -56,27 +41,6 @@ FLASK_HOST = '0.0.0.0'
 FLASK_DEBUG = True
 
 
-# ============================================
-# CONFIGURACIÓN AVANZADA
-# ============================================
-
-# Patrones para detectar puertos Arduino/ESP32 automáticamente
-# Se buscan estos términos en la descripción del puerto
-ARDUINO_PORT_PATTERNS = [
-    'ARDUINO',
-    'USB',
-    'SERIAL',
-    'CH340',
-    'CP210',
-    'ESP32',
-    'FTDI'
-]
 
 # Archivo donde se guarda la configuración persistente
 CONFIG_FILE = 'config.json'
-
-# Habilitar reconexión automática si se pierde la conexión
-AUTO_RECONNECT = True
-
-# Intervalo de intentos de reconexión (segundos)
-RECONNECT_INTERVAL = 5

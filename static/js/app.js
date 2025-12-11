@@ -6,8 +6,8 @@ const state = window.AppState || {};
 // Gráficos
 let pulseChart = null;
 let tempChart = null;
-const maxDataPoints = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.maxChartDataPoints) 
-    ? FRONTEND_CONFIG.maxChartDataPoints 
+const maxDataPoints = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.maxChartDataPoints)
+    ? FRONTEND_CONFIG.maxChartDataPoints
     : 50;
 // Estado centralizado (ver state.js para getters/setters)
 
@@ -26,19 +26,19 @@ function playAlertSound() {
     if (!alertSound) {
         alertSound = initAudio();
     }
-    
+
     const oscillator = alertSound.createOscillator();
     const gainNode = alertSound.createGain();
-    
+
     oscillator.connect(gainNode);
     gainNode.connect(alertSound.destination);
-    
+
     oscillator.frequency.value = 800;
     oscillator.type = 'sine';
-    
+
     gainNode.gain.setValueAtTime(0.3, alertSound.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, alertSound.currentTime + 0.5);
-    
+
     oscillator.start(alertSound.currentTime);
     oscillator.stop(alertSound.currentTime + 0.5);
 }
@@ -92,7 +92,7 @@ function refreshSessionUI() {
         noSession.classList.add('hidden');
         startBtn.disabled = true;
         endBtn.disabled = false;
-        sessionInfo.textContent = `Monitoreando a ${state.currentPatient.name}`;
+        sessionInfo.textContent = ``;
     } else if (state.allowViewWithoutSession) {
         dataSection.classList.remove('hidden');
         noSession.classList.add('hidden');
@@ -233,21 +233,16 @@ function renderPatientDetails(patientId, sessions, stats) {
         </div>
 
         <div class="mb-6">
-            <h4 class="text-lg font-semibold mb-3">Información del Paciente</h4>
+            <h4 class="text-lg font-semibold mb-3">Información y Estadísticas</h4>
             <div class="bg-base-100 rounded-lg p-4">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div><strong>Nombre:</strong> ${patient?.name || 'N/A'}</div>
                     <div><strong>ID:</strong> ${patient?.identifier || 'N/A'}</div>
                     <div><strong>Edad:</strong> ${patient?.age || 'N/A'}</div>
                     <div><strong>Última Temp:</strong> ${patient?.last_temp ? patient.last_temp.toFixed(1) + '°C' : 'N/A'}</div>
-                </div>
-            </div>
-        </div>
+                    
+                    <div class="col-span-2 md:col-span-4 divider my-0"></div>
 
-        <div class="mb-6">
-            <h4 class="text-lg font-semibold mb-3">Estadísticas Detalladas</h4>
-            <div class="bg-base-100 rounded-lg p-4">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div><strong>BPM Mínimo:</strong> ${stats.minBpmOverall}</div>
                     <div><strong>BPM Máximo:</strong> ${stats.maxBpmOverall}</div>
                     <div><strong>Sesiones con BPM:</strong> ${sessions.filter(s => s.avg_bpm != null).length}</div>
@@ -257,30 +252,43 @@ function renderPatientDetails(patientId, sessions, stats) {
         </div>
 
         <div>
-            <h4 class="text-lg font-semibold mb-3">Últimas 10 Sesiones</h4>
-            <div class="overflow-x-auto">
-                <table class="table table-sm">
+            <h4 class="text-lg font-semibold mb-3">Historial de Sesiones</h4>
+            <div class="overflow-x-auto max-h-[400px]">
+                <table class="table table-sm table-pin-rows">
                     <thead>
                         <tr>
                             <th>Fecha</th>
                             <th>BPM Prom</th>
-                            <th>BPM Min</th>
-                            <th>BPM Max</th>
+                            <th>BPM Min/Max</th>
                             <th>Temperatura</th>
                             <th>Duración</th>
+                            <th>Evaluación</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${sessions.slice(0, 10).map(session => `
+                        ${sessions.map(session => {
+        const bpmHigh = session.max_bpm > 100;
+        const bpmLow = session.min_bpm < 60 && session.min_bpm > 0;
+        const tempHigh = session.last_temp > 37.5;
+        const isAbnormal = bpmHigh || bpmLow || tempHigh;
+        const statusBadge = isAbnormal
+            ? '<span class="badge badge-error badge-xs">Atención</span>'
+            : '<span class="badge badge-success badge-xs">Normal</span>';
+
+        return `
                             <tr>
                                 <td>${new Date(session.created_at || session.start_at * 1000).toLocaleString()}</td>
-                                <td>${session.avg_bpm != null ? session.avg_bpm.toFixed(1) : '--'}</td>
-                                <td>${session.min_bpm != null ? session.min_bpm : '--'}</td>
-                                <td>${session.max_bpm != null ? session.max_bpm : '--'}</td>
-                                <td>${session.last_temp != null ? session.last_temp.toFixed(1) + '°C' : '--'}</td>
+                                <td class="font-mono">${session.avg_bpm != null ? session.avg_bpm.toFixed(1) : '--'}</td>
+                                <td class="text-xs">
+                                    <span class="${bpmLow ? 'text-error font-bold' : ''}">${session.min_bpm ?? '-'}</span> / 
+                                    <span class="${bpmHigh ? 'text-error font-bold' : ''}">${session.max_bpm ?? '-'}</span>
+                                </td>
+                                <td class="${tempHigh ? 'text-error font-bold' : ''}">${session.last_temp != null ? session.last_temp.toFixed(1) + '°C' : '--'}</td>
                                 <td>${session.start_at && session.end_at ? formatTime(session.end_at - session.start_at) : '--'}</td>
+                                <td>${session.avg_bpm ? statusBadge : '--'}</td>
                             </tr>
-                        `).join('')}
+                            `;
+    }).join('')}
                     </tbody>
                 </table>
             </div>
@@ -371,6 +379,7 @@ async function saveRecord() {
         }
         resetRecordForm();
         loadHistory();
+        loadPatientsBasic(); // Updates the main dropdown
     } catch (e) {
         console.error('Error guardando registro', e);
         showToast('Error guardando registro', 'error');
@@ -385,6 +394,7 @@ async function performDelete(id) {
         showToast('Registro eliminado', 'success');
         if (editRecordId === id) resetRecordForm();
         loadHistory();
+        loadPatientsBasic(); // Updates the main dropdown
     } catch (e) {
         console.error('Error eliminando registro', e);
         showToast('Error eliminando registro', 'error');
@@ -406,7 +416,7 @@ function requestDelete(id) {
 function updateStatus(status, connected) {
     const statusText = document.getElementById('statusText');
     const statusDot = document.getElementById('statusDot');
-    
+
     statusText.textContent = status;
     if (connected) {
         statusDot.className = 'w-3 h-3 rounded-full bg-success animate-pulse-dot';
@@ -424,24 +434,24 @@ function updateData(data) {
     const bpmElement = document.getElementById('bpm');
     const tempCard = document.getElementById('tempCard');
     const bpmCard = document.getElementById('bpmCard');
-    
+
     if (data.temperature !== undefined) {
         tempElement.textContent = data.temperature.toFixed(1);
         updateTempChart(data.temperature);
     }
-    
+
     if (data.bpm !== undefined) {
         const bpmValue = data.bpm || 0;
         bpmElement.textContent = bpmValue || '--';
         updatePulseChart(bpmValue);
     }
-    
+
     const hasAlert = data.alert || false;
-    
+
     if (hasAlert) {
         tempCard.className = 'card bg-error text-error-content shadow-lg animate-shake';
         bpmCard.className = 'card bg-error text-error-content shadow-lg animate-shake';
-        
+
         if (!isAlertActive) {
             activateAlert();
         }
@@ -598,34 +608,34 @@ function initCharts() {
 
 function updatePulseChart(bpm) {
     if (!pulseChart) return;
-    
+
     const now = new Date();
     const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
+
     const bpmValue = bpm || 0;
     state.pulseData.push(bpmValue);
-    
+
     // Sincronizar timeLabels solo para el gráfico de pulso
     if (state.pulseData.length !== state.timeLabels.length) {
         state.timeLabels.push(timeStr);
     } else {
         state.timeLabels[state.timeLabels.length - 1] = timeStr;
     }
-    
+
     if (state.pulseData.length > maxDataPoints) {
         state.pulseData.shift();
         state.timeLabels.shift();
     }
-    
+
     // Calcular promedio de los valores válidos (> 0)
     const validBPMs = state.pulseData.filter(v => v > 0);
-    const avg = validBPMs.length > 0 
-        ? Math.round(validBPMs.reduce((a, b) => a + b, 0) / validBPMs.length) 
+    const avg = validBPMs.length > 0
+        ? Math.round(validBPMs.reduce((a, b) => a + b, 0) / validBPMs.length)
         : 0;
-    
+
     document.getElementById('currentBPM').textContent = bpmValue || '--';
     document.getElementById('avgBPM').textContent = avg || '--';
-    
+
     pulseChart.data.labels = [...state.timeLabels];
     pulseChart.data.datasets[0].data = [...state.pulseData];
     pulseChart.update('none');
@@ -633,19 +643,19 @@ function updatePulseChart(bpm) {
 
 function updateTempChart(temp) {
     if (!tempChart) return;
-    
+
     const tempValue = temp || 0;
     state.tempData.push(tempValue);
-    
+
     if (state.tempData.length > maxDataPoints) {
         state.tempData.shift();
     }
-    
+
     // Sincronizar con timeLabels del gráfico de pulso
     if (tempChart.data.labels.length !== state.timeLabels.length) {
         tempChart.data.labels = [...state.timeLabels];
     }
-    
+
     // Asegurar que tempData tenga la misma longitud que timeLabels
     while (state.tempData.length < state.timeLabels.length) {
         state.tempData.unshift(tempValue);
@@ -653,30 +663,27 @@ function updateTempChart(temp) {
     while (state.tempData.length > state.timeLabels.length) {
         state.tempData.shift();
     }
-    
+
     tempChart.data.datasets[0].data = [...state.tempData];
-    
+
     if (tempValue > state.tempMax) {
         state.tempMax = tempValue;
     }
-    
+
     document.getElementById('currentTemp').textContent = tempValue ? tempValue.toFixed(1) : '--';
     document.getElementById('maxTemp').textContent = state.tempMax ? state.tempMax.toFixed(1) : '--';
-    
+
     tempChart.update('none');
 }
 
 function activateAlert() {
     isAlertActive = true;
-    const button = document.getElementById('alertButton');
-    const message = document.getElementById('alertMessage');
-    
-    button.className = 'btn btn-error btn-lg gap-2 animate-pulse';
-    button.disabled = false;
-    message.innerHTML = '<div class="alert alert-error shadow-lg"><i class="fas fa-exclamation-triangle mr-2"></i><span>ALERTA: Valores fuera de rango normal!</span></div>';
-    
+    // const button = document.getElementById('alertButton'); // Element removed
+    // const message = document.getElementById('alertMessage'); // Element removed
+
+    // Play sound only
     playAlertSound();
-    
+
     const alertInterval = setInterval(() => {
         if (isAlertActive) {
             playAlertSound();
@@ -688,12 +695,8 @@ function activateAlert() {
 
 function deactivateAlert() {
     isAlertActive = false;
-    const button = document.getElementById('alertButton');
-    const message = document.getElementById('alertMessage');
-    
-    button.className = 'btn btn-primary btn-lg gap-2';
-    message.className = 'mt-6 min-h-[60px] flex items-center justify-center';
-    message.innerHTML = '';
+    // const button = document.getElementById('alertButton'); // Element removed
+    // const message = document.getElementById('alertMessage'); // Element removed
 }
 
 function scheduleFetch(delay = baseInterval) {
@@ -720,18 +723,11 @@ async function fetchData() {
     }
 }
 
-function setupAlertButton() {
-    const button = document.getElementById('alertButton');
-    button.addEventListener('click', () => {
-        if (isAlertActive) {
-            playAlertSound();
-        }
-    });
-}
+
 
 function startUpdates() {
-    baseInterval = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.updateInterval) 
-        ? FRONTEND_CONFIG.updateInterval 
+    baseInterval = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.updateInterval)
+        ? FRONTEND_CONFIG.updateInterval
         : 500;
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
@@ -886,6 +882,7 @@ async function endSession() {
             resetCharts();
             refreshSessionUI();
             disableLiveUpdates();
+            deactivateAlert();
             loadHistory();
         } else {
             showToast(data.error || 'No se pudo cerrar sesión', 'error');
@@ -898,7 +895,6 @@ async function endSession() {
 
 document.addEventListener('DOMContentLoaded', () => {
     initCharts();
-    setupAlertButton();
     refreshSessionUI();
     loadSession();
     loadHistory();

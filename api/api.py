@@ -1,12 +1,11 @@
 from flask import render_template, jsonify, request
 import time
-
+from core.arduino import STATUS_CONNECTED, STATUS_DISCONNECTED, STATUS_WAITING
 
 def register_routes(app, deps):
     config = deps['config']
     session_state = deps['session_state']
     latest_data = deps['latest_data']
-    arduino_ctx = deps['arduino_ctx']
     save_config = deps['save_config']
     save_session_record = deps['save_session_record']
     list_patient_records = deps['list_patient_records']
@@ -16,11 +15,33 @@ def register_routes(app, deps):
     delete_patient = deps['delete_patient']
     update_patient_summary = deps['update_patient_summary']
     compute_avg_bpm = deps['compute_avg_bpm']
-    ArduinoReader = deps['ArduinoReader']
+    accumulate_session_data = deps['accumulate_session_data']
 
     @app.route('/')
     def index():
         return render_template('index.html')
+
+    @app.route('/api/sensor_update', methods=['POST'])
+    def sensor_update():
+        try:
+            data = request.get_json() or {}
+            
+            # Actualizar datos
+            if 'temperature' in data:
+                latest_data['temperature'] = float(data['temperature'])
+            if 'bpm' in data:
+                latest_data['bpm'] = int(data['bpm'])
+            
+            latest_data['status'] = data.get('status', STATUS_CONNECTED)
+            latest_data['last_update'] = time.time() # Marcar timestamp para evitar desconexion inmediata
+
+            # Acumular sesión si está activa
+            if session_state and session_state.get('active'):
+                 accumulate_session_data(latest_data, session_state)
+            
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/api/data')
     def get_data():
@@ -29,7 +50,7 @@ def register_routes(app, deps):
             reset = "\033[0m"
             print(f"[API/DATA] Temp={blue}{latest_data.get('temperature', 0):.1f}°C{reset} "
                   f"BPM={blue}{latest_data.get('bpm', 0)}{reset} "
-                  f"Status={latest_data.get('status', 'Desconectado')}")
+                  f"Status={latest_data.get('status', STATUS_DISCONNECTED)}")
         except Exception:
             pass
         return jsonify(latest_data)
@@ -38,32 +59,13 @@ def register_routes(app, deps):
     def trigger_alert():
         return jsonify({'success': True, 'message': 'Alerta activada'})
 
-    @app.route('/api/ports', methods=['GET'])
-    def list_ports():
-        try:
-            import serial.tools.list_ports
-            ports = []
-            for port in serial.tools.list_ports.comports():
-                ports.append({
-                    'device': port.device,
-                    'description': port.description,
-                    'manufacturer': port.manufacturer or 'Desconocido',
-                    'vid': port.vid,
-                    'pid': port.pid
-                })
-            return jsonify({'success': True, 'ports': ports})
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 500
-
     @app.route('/api/config', methods=['GET'])
     def get_config():
-        reader = arduino_ctx.get('reader')
-        current_port = reader.port if reader and reader.is_connected() else None
         return jsonify({
             'success': True,
             'config': {
                 **config,
-                'current_port': current_port
+                'current_port': "HTTP/WiFi"
             }
         })
 
@@ -72,10 +74,6 @@ def register_routes(app, deps):
         try:
             data = request.get_json() or {}
 
-            if 'port' in data:
-                config['port'] = data['port']
-            if 'baudrate' in data:
-                config['baudrate'] = int(data['baudrate'])
             if 'temp_min' in data:
                 config['temp_min'] = float(data['temp_min'])
             if 'temp_max' in data:
@@ -84,46 +82,9 @@ def register_routes(app, deps):
                 config['bpm_min'] = int(data['bpm_min'])
             if 'bpm_max' in data:
                 config['bpm_max'] = int(data['bpm_max'])
-            if 'update_interval' in data:
-                config['update_interval'] = int(data['update_interval'])
 
             save_config()
-
-            if 'port' in data or 'baudrate' in data:
-                reader = arduino_ctx.get('reader')
-                if reader:
-                    reader.disconnect()
-                new_reader = ArduinoReader(baudrate=config['baudrate'])
-                if new_reader.connect(port=config.get('port')):
-                    arduino_ctx['reader'] = new_reader
-                    return jsonify({'success': True, 'message': 'Configuración guardada y reconectado'})
-                arduino_ctx['reader'] = new_reader
-                return jsonify({'success': False, 'message': 'Configuración guardada pero no se pudo conectar'})
-
             return jsonify({'success': True, 'message': 'Configuración guardada'})
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 500
-
-    @app.route('/api/connect', methods=['POST'])
-    def connect_port():
-        try:
-            data = request.get_json() or {}
-            port = data.get('port')
-            baudrate = int(data.get('baudrate', config['baudrate']))
-
-            reader = arduino_ctx.get('reader')
-            if reader:
-                reader.disconnect()
-
-            new_reader = ArduinoReader(baudrate=baudrate)
-            if new_reader.connect(port=port):
-                arduino_ctx['reader'] = new_reader
-                config['port'] = port
-                config['baudrate'] = baudrate
-                save_config()
-                return jsonify({'success': True, 'message': f'Conectado a {port}'})
-            arduino_ctx['reader'] = new_reader
-            return jsonify({'success': False, 'message': 'No se pudo conectar al puerto'})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
 

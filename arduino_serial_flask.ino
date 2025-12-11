@@ -1,10 +1,16 @@
-// Código ESP32 para comunicación Serial con Flask
+// Código ESP32 para comunicación HTTP con Flask
 // Sensor de temperatura: MLX90614
 // Sensor de pulso: Sensor analógico en pin 34
-// NOTA: Este código es para ESP32, NO para Arduino UNO
 
 #include <Wire.h>
 #include <Adafruit_MLX90614.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+// --- CONFIGURACIÓN WIFI Y SERVIDOR ---
+const char* ssid = "TU_WIFI_SSID";
+const char* password = "TU_WIFI_PASSWORD";
+String serverName = "http://192.168.1.X:5000/api/sensor_update"; // CAMBIAR POR LA IP DE TU PC
 
 // PINES ESP32
 #define pulsoPin 34      // Pin analógico para sensor de pulso
@@ -30,13 +36,17 @@ Adafruit_MLX90614 sensor = Adafruit_MLX90614();
 unsigned long lastUpdateTime = 0;
 #define updateInterval 2000
 
+WiFiClient client;
+HTTPClient http;
+
 void setup() {
-  Serial.begin(115200);
-  delay(1000);
-  
-  Serial.println("\n=== Monitor Cardiaco ESP32 ===");
-  Serial.println("Comunicacion Serial con Flask");
-  
+
+  // Conectar WiFi
+  WiFi.begin(ssid, password);
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+
   // Inicializar I2C para sensor de temperatura
   Wire.begin(sdaPin, sclPin);
   
@@ -46,13 +56,9 @@ void setup() {
   
   // Inicializar sensor de temperatura MLX90614
   if (!sensor.begin()) {
-    Serial.println("Error: Sensor MLX90614 no encontrado");
+    // Error: Sensor no encontrado (sin Serial no podemos avisar facilmente, quizas parpadear LED o buzzer)
     while (1);
   }
-  
-  Serial.println("Sistema iniciado. Listo para Flask.");
-  Serial.println("Formato: BPM: XX (Estado) | Temp: XX.X°C | Buzzer: OFF");
-  Serial.println("------------------------------------");
 }
 
 void loop() {
@@ -104,13 +110,21 @@ void loop() {
       digitalWrite(buzzerPin, LOW);
     }
     
-    Serial.print("BPM: ");
-    Serial.print(BPM);
-    Serial.print(" (");
-    Serial.print(estadoBPM);
-    Serial.print(") | Temp: ");
-    Serial.print(temp, 1);
-    Serial.println("°C | Buzzer: OFF");
+    // Enviar por HTTP
+    if(WiFi.status() == WL_CONNECTED){
+      http.begin(client, serverName);
+      http.addHeader("Content-Type", "application/json"); // Especificar JSON
+
+      // Crear JSON Manualmente
+      String jsonPayload = "{";
+      jsonPayload += "\"temperature\":" + String(temp, 2) + ",";
+      jsonPayload += "\"bpm\":" + String(BPM) + ",";
+      jsonPayload += "\"status\":\"" + estadoBPM + "\"";
+      jsonPayload += "}";
+
+      http.POST(jsonPayload);
+      http.end();
+    }
   }
   
   delay(10);

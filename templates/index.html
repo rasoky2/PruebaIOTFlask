@@ -119,7 +119,7 @@
                                 <div class="form-control">
                                     <label class="label"><span class="label-text font-semibold">Acciones</span></label>
                                     <div class="flex gap-2">
-                                        <button id="useSelectedBtn" class="btn btn-success flex-1 text-white">
+                                        <button id="useSelectedBtn" class="btn flex-1 text-white" style="background-color: var(--aws-navy); border-color: var(--aws-navy);">
                                             <i class="fas fa-play mr-1"></i> Usar
                                         </button>
                                         <button id="refreshPatientsBtn" class="btn btn-outline">
@@ -135,14 +135,14 @@
                             <input id="patientName" type="hidden">
                             <input id="patientId" type="hidden">
                             <input id="patientAge" type="hidden">
-                            <div class="flex flex-wrap gap-3 mt-2">
+                            <div class="flex flex-wrap gap-3 mt-2 justify-center">
                                 <button id="startSessionBtn" class="btn btn-success gap-2 hidden">
                                     <i class="fas fa-play"></i> Iniciar registro
                                 </button>
                                 <button id="endSessionBtn" class="btn btn-outline btn-error gap-2" disabled>
                                     <i class="fas fa-stop"></i> Cerrar registro
                                 </button>
-                                <span id="sessionInfo" class="text-sm text-gray-600"></span>
+                                <span id="sessionInfo" class="text-sm text-gray-600 flex items-center font-bold"></span>
                             </div>
                         </div>
                     </div>
@@ -185,13 +185,7 @@
                             </div>
                         </div>
 
-                        <div class="text-center mb-6">
-                            <button id="alertButton" class="btn btn-primary btn-lg gap-2" disabled>
-                                <i class="fas fa-bell"></i>
-                                <span>Activar Alerta</span>
-                            </button>
-                            <div id="alertMessage" class="mt-4 min-h-[60px] flex items-center justify-center"></div>
-                        </div>
+
 
                         <!-- Gráficos de Monitoreo -->
                         <div class="grid grid-cols-1 gap-6">
