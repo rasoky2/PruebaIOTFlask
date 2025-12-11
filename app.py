@@ -151,7 +151,7 @@ if __name__ == '__main__':
         print("="*60)
         print(f" - WIFI (SSID) :  \033[92m{ssid}\033[0m")
         print(f" - IP LOCAL    :  \033[96m{ip_address}\033[0m")
-        print(f" - URL API        :  \033[93mhttp://{ip_address}:{port}/api/sensor_update\033[0m")
+        print(f" - URL API     :  \033[93mhttp://{ip_address}:{port}/api/sensor_update\033[0m")
         print("-" * 60)
         print(" Copia estos datos en tu archivo 'arduino_serial_flask.ino'")
         print("="*60 + "\n")
