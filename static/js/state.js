@@ -1,7 +1,3 @@
-// Estado centralizado (simple) para exponer variables de app.js sin reescribir todo.
-// Define propiedades en window con getters/setters hacia un objeto interno.
-// Así podemos eliminar declaraciones duplicadas en app.js sin romper referencias existentes.
-
 const __state = {
     sessionActive: false,
     currentPatient: null,
@@ -19,7 +15,7 @@ const __state = {
 };
 
 function defineStateProp(name) {
-    Object.defineProperty(window, name, {
+    Object.defineProperty(globalThis, name, {
         get() { return __state[name]; },
         set(val) { __state[name] = val; },
         configurable: false
@@ -42,7 +38,7 @@ function defineStateProp(name) {
     'tempMax'
 ].forEach(defineStateProp);
 
-window.AppState = new Proxy(__state, {
+globalThis.AppState = new Proxy(__state, {
     get(_, prop) { return __state[prop]; },
     set(_, prop, val) { __state[prop] = val; return true; }
 });

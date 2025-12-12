@@ -397,9 +397,8 @@ function requestDelete(id) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(globalThis.location.search);
     const initialPatientId = params.get('patient');
-    const detailsModal = document.getElementById('detailsModal');
     const confirmDeleteModal = document.getElementById('confirmDeleteModal');
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 

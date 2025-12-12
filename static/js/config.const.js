@@ -52,8 +52,8 @@ const FRONTEND_CONFIG = {
 
     // Umbrales por defecto (se pueden cambiar desde la interfaz)
     defaultThresholds: {
-        tempMin: 20.0,
-        tempMax: 37.0,
+        tempMin: 20,
+        tempMax: 37,
         bpmMin: 60,
         bpmMax: 100
     },
