@@ -32,8 +32,8 @@ function renderHistory(records) {
             <td>${r.name || '--'}</td>
             <td>${r.identifier || '--'}</td>
             <td>${r.age ?? '--'}</td>
-            <td>${r.last_temp != null ? Number(r.last_temp).toFixed(1) : '--'}</td>
-            <td>${r.avg_bpm != null ? Number(r.avg_bpm).toFixed(1) : '--'}</td>
+            <td>${r.last_temp !== undefined && r.last_temp !== null ? Number(r.last_temp).toFixed(1) : '--'}</td>
+            <td>${r.avg_bpm !== undefined && r.avg_bpm !== null ? Number(r.avg_bpm).toFixed(1) : '--'}</td>
             <td>${r.created_at || '--'}</td>
             <td class="flex gap-2">
                 <button class="btn btn-ghost btn-xs text-primary" data-action="edit" data-id="${r.id}"><i class="fas fa-edit"></i></button>
@@ -57,10 +57,10 @@ function renderSessions(records) {
     const rows = records.map(r => `
         <tr>
             <td>${r.id}</td>
-            <td>${r.avg_bpm != null ? Number(r.avg_bpm).toFixed(1) : '--'}</td>
-            <td>${r.min_bpm != null ? Number(r.min_bpm).toFixed(1) : '--'}</td>
-            <td>${r.max_bpm != null ? Number(r.max_bpm).toFixed(1) : '--'}</td>
-            <td>${r.last_temp != null ? Number(r.last_temp).toFixed(1) : '--'} °C</td>
+            <td>${r.avg_bpm !== undefined && r.avg_bpm !== null ? Number(r.avg_bpm).toFixed(1) : '--'}</td>
+            <td>${r.min_bpm !== undefined && r.min_bpm !== null ? Number(r.min_bpm).toFixed(1) : '--'}</td>
+            <td>${r.max_bpm !== undefined && r.max_bpm !== null ? Number(r.max_bpm).toFixed(1) : '--'}</td>
+            <td>${r.last_temp !== undefined && r.last_temp !== null ? Number(r.last_temp).toFixed(1) : '--'} °C</td>
         </tr>
     `).join('');
     tbody.innerHTML = rows;
@@ -170,8 +170,8 @@ function calculatePatientStats(sessions) {
     return {
         totalSessions: sessions.length,
         avgBpmOverall: validBpmCount > 0 ? (totalBpm / validBpmCount).toFixed(1) : 0,
-        minBpmOverall: minBpm !== Infinity ? minBpm : 0,
-        maxBpmOverall: maxBpm !== -Infinity ? maxBpm : 0,
+        minBpmOverall: Number.isFinite(minBpm) ? minBpm : 0,
+        maxBpmOverall: Number.isFinite(maxBpm) ? maxBpm : 0,
         avgTempOverall: validTempCount > 0 ? (totalTemp / validTempCount).toFixed(1) : 0,
         totalMonitoringTime: totalTime
     };
@@ -245,10 +245,10 @@ function renderPatientDetails(patientId, sessions, stats) {
                         ${sessions.slice(0, 10).map(session => `
                             <tr>
                                 <td>${new Date(session.created_at || session.start_at * 1000).toLocaleString()}</td>
-                                <td>${session.avg_bpm != null ? session.avg_bpm.toFixed(1) : '--'}</td>
-                                <td>${session.min_bpm != null ? session.min_bpm : '--'}</td>
-                                <td>${session.max_bpm != null ? session.max_bpm : '--'}</td>
-                                <td>${session.last_temp != null ? session.last_temp.toFixed(1) + '°C' : '--'}</td>
+                                <td>${session.avg_bpm !== undefined && session.avg_bpm !== null ? session.avg_bpm.toFixed(1) : '--'}</td>
+                                <td>${session.min_bpm !== undefined && session.min_bpm !== null ? session.min_bpm : '--'}</td>
+                                <td>${session.max_bpm !== undefined && session.max_bpm !== null ? session.max_bpm : '--'}</td>
+                                <td>${session.last_temp !== undefined && session.last_temp !== null ? session.last_temp.toFixed(1) + '°C' : '--'}</td>
                                 <td>${session.start_at && session.end_at ? formatTime(session.end_at - session.start_at) : '--'}</td>
                             </tr>
                         `).join('')}
@@ -323,7 +323,7 @@ async function saveRecord() {
     const name = document.getElementById('recordName').value.trim();
     const identifier = idInput.value.trim();
     const ageValue = ageInput.value;
-    const age = ageValue ? parseInt(ageValue, 10) : null;
+    const age = ageValue ? Number.parseInt(ageValue, 10) : null;
 
     if (!name) {
         showToast('Nombre requerido', 'warning');

@@ -133,7 +133,7 @@ if __name__ == '__main__':
         except Exception:
             try:
                  ip_address = socket.gethostbyname(socket.gethostname())
-            except:
+            except (OSError, socket.error):
                 pass
 
         # 2. Obtener SSID (Solo Windows)
@@ -147,7 +147,7 @@ if __name__ == '__main__':
             pass
 
         print("\n" + "="*60)
-        print(f" SERVIDOR LISTO - DATOS PARA TU ESP32 (.ino)")
+        print(" SERVIDOR LISTO - DATOS PARA TU ESP32 (.ino)")
         print("="*60)
         print(f" - WIFI (SSID) :  \033[92m{ssid}\033[0m")
         print(f" - IP LOCAL    :  \033[96m{ip_address}\033[0m")

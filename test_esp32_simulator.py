@@ -27,7 +27,7 @@ def send_data(temp, bpm, status):
         print(f"   Detalle: {e}")
         print("   -> Asegúrate de que 'python app.py' esté corriendo en otra terminal.")
 
-print(f"\n=== Simulador ESP32 (HTTP Client) ===")
+print("\n=== Simulador ESP32 (HTTP Client) ===")
 print(f"Destino: {SERVER_URL}")
 print("Generando signos vitales aleatorios...")
 print("Presiona CTRL+C para detener\n")
