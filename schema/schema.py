@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS patients (
     age INTEGER,
     last_temp REAL,
     avg_bpm REAL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
 )
 """
 
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_temp REAL,
     start_at REAL,
     end_at REAL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY(patient_id) REFERENCES patients(id)
 )
 """

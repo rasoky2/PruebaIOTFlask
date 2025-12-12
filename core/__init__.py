@@ -1,1 +1,1 @@
-# Core package for Arduino and hardware operations
+# Core package for ESP32 and hardware operations

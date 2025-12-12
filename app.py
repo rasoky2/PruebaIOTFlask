@@ -13,7 +13,7 @@ from schema.schema import (
     save_session_record,
     list_patient_sessions,
 )
-from core.arduino import (
+from core.esp32 import (
     latest_data,
     monitor_sensor_timeout,
     accumulate_session_data,
@@ -89,7 +89,7 @@ def save_config():
 
 
 
-# Funciones de Arduino manejadas por arduino.py
+# Funciones de ESP32 manejadas por esp32.py
 
 
 def _compute_avg_bpm():
@@ -153,7 +153,7 @@ if __name__ == '__main__':
         print(f" - IP LOCAL    :  \033[96m{ip_address}\033[0m")
         print(f" - URL API     :  \033[93mhttp://{ip_address}:{port}/api/sensor_update\033[0m")
         print("-" * 60)
-        print(" Copia estos datos en tu archivo 'arduino_serial_flask.ino'")
+        print(" Copia estos datos en tu archivo 'esp32_serial_flask.ino'")
         print("="*60 + "\n")
 
     # Cargar configuración

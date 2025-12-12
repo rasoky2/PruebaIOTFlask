@@ -1,6 +1,6 @@
-# Monitor Cardíaco con Flask y Arduino
+# Monitor Cardíaco con Flask y ESP32
 
-Sistema de monitoreo de signos vitales que conecta Arduino (ESP32) con una aplicación Flask para visualización en tiempo real y alertas.
+Sistema de monitoreo de signos vitales que conecta ESP32 con una aplicación Flask para visualización en tiempo real y alertas.
 
 ## Características
 
@@ -17,40 +17,45 @@ Sistema de monitoreo de signos vitales que conecta Arduino (ESP32) con una aplic
 ## Requisitos
 
 ### Hardware
-- ESP32 (o Arduino compatible)
+
+- ESP32
 - Sensor de temperatura MLX90614
 - Sensor de pulso cardíaco (analógico)
-- Buzzer (opcional, para alertas en Arduino)
+- Buzzer (opcional, para alertas en ESP32)
 - Cables y resistencias según necesidad
 
 ### Software
+
 - Python 3.8+
 - Arduino IDE
-- Librerías Arduino:
+- Librerías ESP32:
   - `Adafruit_MLX90614`
   - `Wire`
 
 ## Instalación
 
 1. Instalar dependencias de Python:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 2. Subir el código ESP32:
-   - **IMPORTANTE**: Usar `arduino_serial_flask.ino` (NO `heart.ino`)
+
+   - **IMPORTANTE**: Usar `esp32_serial_flask.ino` (NO `heart.ino`)
    - `heart.ino` es para WiFi/Ubidots (no compatible con Flask)
-   - `arduino_serial_flask.ino` es para comunicación Serial con Flask
-   - Abrir `arduino_serial_flask.ino` en Arduino IDE
+   - `esp32_serial_flask.ino` es para comunicación Serial con Flask
+   - Abrir `esp32_serial_flask.ino` en Arduino IDE
    - Instalar librería `Adafruit MLX90614` desde el gestor de librerías
    - Seleccionar la placa: **ESP32 Dev Module** (o tu modelo de ESP32)
    - Subir el código
 
-3. Conectar Arduino al puerto USB
+3. Conectar ESP32 al puerto USB
 
 ## Uso
 
 1. Iniciar el servidor Flask:
+
 ```bash
 python app.py
 ```
@@ -80,8 +85,7 @@ Cuando los valores excedan estos rangos, se activará automáticamente una alert
 ```
 .
 ├── app.py                 # Servidor Flask principal
-├── arduino_serial.py      # Comunicación serial con ESP32
-├── arduino_serial_flask.ino  # Código ESP32 para Flask (USAR ESTE)
+├── esp32_serial_flask.ino  # Código ESP32 para Flask (USAR ESTE)
 ├── heart.ino              # Código ESP32 para WiFi/Ubidots (NO USAR con Flask)
 ├── config.py              # Configuración manual Python (opcional)
 ├── config.example.py      # Ejemplo de configuración
@@ -129,16 +133,16 @@ Para configurar el frontend, edita `static/js/config.const.js`:
 
 ```javascript
 const FRONTEND_CONFIG = {
-    updateInterval: 500,        // Intervalo de actualización (ms)
-    enableAlertSound: true,     // Habilitar sonido de alerta
-    alertSoundFrequency: 800,   // Frecuencia del sonido (Hz)
-    // ... más opciones
+  updateInterval: 500, // Intervalo de actualización (ms)
+  enableAlertSound: true, // Habilitar sonido de alerta
+  alertSoundFrequency: 800, // Frecuencia del sonido (Hz)
+  // ... más opciones
 };
 ```
 
 ## Notas
 
-- **IMPORTANTE**: Este proyecto usa `arduino_serial_flask.ino` (ESP32 con Serial)
+- **IMPORTANTE**: Este proyecto usa `esp32_serial_flask.ino` (ESP32 con Serial)
 - `heart.ino` es un código diferente que usa WiFi y Ubidots (no compatible con Flask)
 - El sistema busca automáticamente el puerto COM donde está conectado ESP32
 - **Configuración**: Toda la configuración se realiza mediante archivos:
@@ -148,4 +152,3 @@ const FRONTEND_CONFIG = {
 - El botón "Activar Alerta" permite reproducir manualmente el sonido de alerta
 - Los gráficos muestran hasta 50 puntos de datos (configurable en `config.const.js`)
 - Al cerrar sesión de paciente se guarda en `patients.db` la temperatura final y el promedio de BPM
-

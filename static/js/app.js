@@ -9,9 +9,7 @@ let tempChart = null;
 const maxDataPoints = (typeof FRONTEND_CONFIG !== 'undefined' && FRONTEND_CONFIG.maxChartDataPoints)
     ? FRONTEND_CONFIG.maxChartDataPoints
     : 50;
-// Estado centralizado (ver state.js para getters/setters)
 
-// Polling y backoff
 let fetchTimer = null;
 let errorStreak = 0;
 let baseInterval = 500;

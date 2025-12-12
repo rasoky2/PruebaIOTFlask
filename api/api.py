@@ -1,6 +1,6 @@
 from flask import render_template, jsonify, request
 import time
-from core.arduino import STATUS_CONNECTED, STATUS_DISCONNECTED, STATUS_WAITING
+from core.esp32 import STATUS_CONNECTED, STATUS_DISCONNECTED, STATUS_WAITING
 
 def register_routes(app, deps):
     config = deps['config']

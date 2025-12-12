@@ -1,7 +1,7 @@
 import time
 
 # Configuración por defecto de Límites
-DEFAULT_ARDUINO_CONFIG = {
+DEFAULT_ESP32_CONFIG = {
     'temp_min': 20.0,
     'temp_max': 37.0,
     'bpm_min': 60,
@@ -26,7 +26,7 @@ def monitor_sensor_timeout(config=None):
     global latest_data
 
     if config is None:
-        config = DEFAULT_ARDUINO_CONFIG
+        config = DEFAULT_ESP32_CONFIG
 
     while True:
         # Check for timeout if no update received recently
@@ -46,10 +46,10 @@ def monitor_sensor_timeout(config=None):
         # Solo evaluar alertas si tenemos datos recientes
         if latest_data.get('status') not in [STATUS_DISCONNECTED, STATUS_WAITING]:
             latest_data['alert'] = (
-                temp > config.get('temp_max', DEFAULT_ARDUINO_CONFIG['temp_max']) or
-                temp < config.get('temp_min', DEFAULT_ARDUINO_CONFIG['temp_min']) or
-                bpm > config.get('bpm_max', DEFAULT_ARDUINO_CONFIG['bpm_max']) or
-                (bpm < config.get('bpm_min', DEFAULT_ARDUINO_CONFIG['bpm_min']) and bpm > 0)
+                temp > config.get('temp_max', DEFAULT_ESP32_CONFIG['temp_max']) or
+                temp < config.get('temp_min', DEFAULT_ESP32_CONFIG['temp_min']) or
+                bpm > config.get('bpm_max', DEFAULT_ESP32_CONFIG['bpm_max']) or
+                (bpm < config.get('bpm_min', DEFAULT_ESP32_CONFIG['bpm_min']) and bpm > 0)
             )
 
         time.sleep(1.0)
